@@ -5,6 +5,7 @@ import (
 	"github.com/Lybertyxz/CatRoyale/server/internal/config"
 	"github.com/Lybertyxz/CatRoyale/server/internal/transport/http/middleware"
 	"github.com/Lybertyxz/CatRoyale/server/internal/transport/ws"
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -17,7 +18,7 @@ func NewRouter(cfg *config.Config, hub *ws.Hub, firebase *auth.FirebaseManager) 
 
 	api := app.Group("/api/v1")
 
-	// Routes protégées
+	// Routes protégées HTTP
 	protected := api.Group("", middleware.Protected(firebase))
 	protected.Get("/me", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
@@ -26,14 +27,13 @@ func NewRouter(cfg *config.Config, hub *ws.Hub, firebase *auth.FirebaseManager) 
 		})
 	})
 
-	// WebSocket
-	api.Get("/ws", wsHandler(hub))
+	api.Use("/ws", func(c *fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(c) {
+			return c.Next()
+		}
+		return fiber.ErrUpgradeRequired
+	})
+	api.Get("/ws", ws.Handler(hub, firebase))
 
 	return app
-}
-
-func wsHandler(hub *ws.Hub) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		return c.SendString("ws endpoint")
-	}
 }

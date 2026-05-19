@@ -1,10 +1,10 @@
 package ws
 
-type Client struct {
-	ID   string
-	Send chan []byte
-	Hub  *Hub
-	conn interface{}
+import "github.com/Lybertyxz/CatRoyale/server/pkg/protocol"
+
+type IncomingMessage struct {
+	Client   *Client
+	Envelope protocol.Envelope
 }
 
 type Hub struct {
@@ -12,6 +12,7 @@ type Hub struct {
 	Register   chan *Client
 	Unregister chan *Client
 	Broadcast  chan []byte
+	Incoming   chan *IncomingMessage
 }
 
 func NewHub() *Hub {
@@ -20,6 +21,7 @@ func NewHub() *Hub {
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
 		Broadcast:  make(chan []byte),
+		Incoming:   make(chan *IncomingMessage, 256),
 	}
 }
 
