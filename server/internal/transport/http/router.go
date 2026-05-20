@@ -3,13 +3,14 @@ package http
 import (
 	"github.com/Lybertyxz/CatRoyale/server/internal/auth"
 	"github.com/Lybertyxz/CatRoyale/server/internal/config"
+	"github.com/Lybertyxz/CatRoyale/server/internal/game"
 	"github.com/Lybertyxz/CatRoyale/server/internal/transport/http/middleware"
 	"github.com/Lybertyxz/CatRoyale/server/internal/transport/ws"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 )
 
-func NewRouter(cfg *config.Config, hub *ws.Hub, firebase *auth.FirebaseManager) *fiber.App {
+func NewRouter(cfg *config.Config, hub *ws.Hub, firebase *auth.FirebaseManager, roomManager *game.RoomManager) *fiber.App {
 	app := fiber.New()
 
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -33,7 +34,7 @@ func NewRouter(cfg *config.Config, hub *ws.Hub, firebase *auth.FirebaseManager) 
 		}
 		return fiber.ErrUpgradeRequired
 	})
-	api.Get("/ws", ws.Handler(hub, firebase))
+	api.Get("/ws", ws.Handler(hub, firebase, roomManager))
 
 	return app
 }
