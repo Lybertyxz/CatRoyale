@@ -11,6 +11,9 @@ client/.vsconfig
 server/bin/
 server/tmp/
 
+# Firebase
+server/firebase-service-account.json
+
 # Env
 .env
 *.env
