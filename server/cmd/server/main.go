@@ -77,7 +77,7 @@ func main() {
 	})
 	go queue.Run(context.Background())
 
-	app := transporthttp.NewRouter(cfg, hub, firebase, roomManager)
+	app := transporthttp.NewRouter(cfg, hub, firebase, roomManager, queue)
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)
 	if err := app.Listen(":" + cfg.ServerPort); err != nil {
