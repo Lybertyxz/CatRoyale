@@ -46,15 +46,19 @@ namespace CatRoyale.UI.Collection
 
         private void DisplayPieces(List<PieceCardData> pieces)
         {
-            // Vide la grille
             foreach (Transform child in _gridContainer)
                 Destroy(child.gameObject);
-
             foreach (var piece in pieces)
             {
                 var card = Instantiate(_pieceCardPrefab, _gridContainer);
-                card.GetComponent<PieceCardUI>()?.Setup(piece);
+                card.GetComponent<PieceCardUI>()?.Setup(piece, OnCardClicked);
             }
+        }
+
+        private void OnCardClicked(PieceCardData data)
+        {
+            Debug.Log($"[CollectionView] Card clicked: {data.Name}");
+            // TODO: ouvrir popup détail
         }
 
         private void OnFilterChanged(int index)

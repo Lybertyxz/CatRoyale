@@ -1,50 +1,57 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
+using UnityEngine.EventSystems;
 
 namespace CatRoyale.UI.Collection
 {
-    public class PieceCardUI : MonoBehaviour
+    public class PieceCardUI : MonoBehaviour, IPointerClickHandler
     {
-        [Header("Visual")]
-        [SerializeField] private Image _icon;
+        [Header("Background")]
+        [SerializeField] private Image _background;
         [SerializeField] private Image _rarityBorder;
-        [SerializeField] private TextMeshProUGUI _nameText;
-        [SerializeField] private TextMeshProUGUI _roleText;
-        [SerializeField] private TextMeshProUGUI _rarityText;
 
-        [Header("Stats")]
-        [SerializeField] private TextMeshProUGUI _hpText;
-        [SerializeField] private TextMeshProUGUI _attackText;
-        [SerializeField] private TextMeshProUGUI _armorText;
-        [SerializeField] private TextMeshProUGUI _slotCostText;
+        [Header("Content")]
+        [SerializeField] private Image _characterIcon;
+        [SerializeField] private Image _roleIcon;
+        [SerializeField] private GameObject _unknownOverlay; // "?" si non possédé
+
+        private PieceCardData _data;
+        private System.Action<PieceCardData> _onClickCallback;
 
         [Header("Rarity Colors")]
-        [SerializeField] private Color _commonColor = new Color(0.7f, 0.7f, 0.7f);
-        [SerializeField] private Color _rareColor = new Color(0.2f, 0.5f, 1f);
-        [SerializeField] private Color _epicColor = new Color(0.6f, 0.2f, 0.8f);
+        [SerializeField] private Color _commonColor    = new Color(0.6f, 0.6f, 0.6f);
+        [SerializeField] private Color _rareColor      = new Color(0.2f, 0.5f, 1f);
+        [SerializeField] private Color _epicColor      = new Color(0.6f, 0.2f, 0.8f);
         [SerializeField] private Color _legendaryColor = new Color(1f, 0.7f, 0f);
 
-        public void Setup(PieceCardData data)
+        public void Setup(PieceCardData data, System.Action<PieceCardData> onClick = null)
         {
-            if (_nameText) _nameText.text = data.Name;
-            if (_roleText) _roleText.text = data.Role;
-            if (_rarityText) _rarityText.text = data.Rarity;
-            if (_hpText) _hpText.text = $"HP {data.MaxHP}";
-            if (_attackText) _attackText.text = $"ATK {data.Attack}";
-            if (_armorText) _armorText.text = $"ARM {data.Armor}";
-            if (_slotCostText) _slotCostText.text = $"Slots {data.SlotCost}";
-            if (_icon && data.Icon) _icon.sprite = data.Icon;
+            _data = data;
+            _onClickCallback = onClick;
 
-            if (_rarityBorder)
-                _rarityBorder.color = GetRarityColor(data.Rarity);
+            var rarityColor = GetRarityColor(data.Rarity);
+
+            if (_background) _background.color = new Color(
+                rarityColor.r * 0.3f,
+                rarityColor.g * 0.3f,
+                rarityColor.b * 0.3f, 1f
+            );
+            if (_rarityBorder) _rarityBorder.color = rarityColor;
+            if (_characterIcon && data.Icon) _characterIcon.sprite = data.Icon;
+            if (_roleIcon && data.RoleIcon) _roleIcon.sprite = data.RoleIcon;
+            if (_unknownOverlay) _unknownOverlay.SetActive(!data.IsOwned);
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            _onClickCallback?.Invoke(_data);
         }
 
         private Color GetRarityColor(string rarity) => rarity switch
         {
-            "common" => _commonColor,
-            "rare" => _rareColor,
-            "epic" => _epicColor,
+            "common"    => _commonColor,
+            "rare"      => _rareColor,
+            "epic"      => _epicColor,
             "legendary" => _legendaryColor,
             _ => _commonColor
         };
@@ -60,6 +67,9 @@ namespace CatRoyale.UI.Collection
         public int Attack;
         public int Armor;
         public int SlotCost;
+        public int AttackRange;
+        public bool IsOwned;
         public Sprite Icon;
+        public Sprite RoleIcon;
     }
 }
