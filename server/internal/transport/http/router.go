@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func NewRouter(cfg *config.Config, hub *ws.Hub, firebase *auth.FirebaseManager, roomManager *game.RoomManager, queue *matchmaking.Queue) *fiber.App {
+func NewRouter(cfg *config.Config, hub *ws.Hub, firebase *auth.FirebaseManager, roomManager *game.RoomManager, queue *matchmaking.Queue, userService *auth.UserService) *fiber.App {
 	app := fiber.New()
 
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -36,6 +36,20 @@ func NewRouter(cfg *config.Config, hub *ws.Hub, firebase *auth.FirebaseManager, 
 		return fiber.ErrUpgradeRequired
 	})
 	api.Get("/ws", ws.Handler(hub, firebase, roomManager, queue))
+
+	api.Post("/auth/login", func(c *fiber.Ctx) error {
+		var body struct {
+			Token string `json:"token"`
+		}
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+		}
+		user, err := userService.GetOrCreateUser(c.Context(), body.Token)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(user)
+	})
 
 	return app
 }

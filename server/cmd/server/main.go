@@ -9,6 +9,7 @@ import (
 	"github.com/Lybertyxz/CatRoyale/server/internal/config"
 	"github.com/Lybertyxz/CatRoyale/server/internal/game"
 	"github.com/Lybertyxz/CatRoyale/server/internal/matchmaking"
+	"github.com/Lybertyxz/CatRoyale/server/internal/store/postgres"
 	redisstore "github.com/Lybertyxz/CatRoyale/server/internal/store/redis"
 	transporthttp "github.com/Lybertyxz/CatRoyale/server/internal/transport/http"
 	"github.com/Lybertyxz/CatRoyale/server/internal/transport/ws"
@@ -26,10 +27,18 @@ func main() {
 		log.Fatal("failed to init firebase:", err)
 	}
 
+	pgStore, err := postgres.NewStore(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal("failed to connect to postgres:", err)
+	}
+	defer pgStore.Close()
+
 	redisStore, err := redisstore.NewStore(cfg.RedisURL)
 	if err != nil {
 		log.Fatal("failed to connect to redis:", err)
 	}
+
+	userService := auth.NewUserService(pgStore, firebase)
 
 	hub := ws.NewHub()
 	go hub.Run()
@@ -77,7 +86,7 @@ func main() {
 	})
 	go queue.Run(context.Background())
 
-	app := transporthttp.NewRouter(cfg, hub, firebase, roomManager, queue)
+	app := transporthttp.NewRouter(cfg, hub, firebase, roomManager, queue, userService)
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)
 	if err := app.Listen(":" + cfg.ServerPort); err != nil {
