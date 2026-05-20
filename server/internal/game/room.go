@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
+
+	"github.com/Lybertyxz/CatRoyale/server/pkg/protocol"
 )
 
 // RoomManager gère toutes les parties en cours
@@ -17,6 +20,7 @@ type RoomManager struct {
 type MatchRoom struct {
 	Match        *Match
 	Processor    *TurnProcessor
+	DecksReady   [2]bool
 	SendToPlayer func(playerID string, msgType string, payload interface{})
 }
 
@@ -139,4 +143,81 @@ func (rm *RoomManager) buildStatePayload(room *MatchRoom) map[string]interface{}
 		"time_remaining": room.Match.TurnTimeRemaining().Seconds(),
 		"board":          boardState,
 	}
+}
+
+// SubmitDeck reçoit et valide le deck d'un joueur
+func (rm *RoomManager) SubmitDeck(playerID string, payload protocol.SubmitDeckPayload) error {
+	room, ok := rm.GetRoomByPlayer(playerID)
+	if !ok {
+		return fmt.Errorf("player not in any room")
+	}
+
+	if room.Match.Status != MatchStatusInProgress {
+		return fmt.Errorf("match not accepting decks")
+	}
+
+	// Trouve l'index du joueur (0 ou 1)
+	playerIndex := -1
+	for i, id := range room.Match.PlayerIDs {
+		if id == playerID {
+			playerIndex = i
+			break
+		}
+	}
+	if playerIndex == -1 {
+		return fmt.Errorf("player not found in match")
+	}
+
+	// Construit et place les pièces sur le board
+	for _, entry := range payload.Entries {
+		tmpl, ok := room.Match.Templates[entry.TemplateID]
+		if !ok {
+			return fmt.Errorf("unknown piece template: %s", entry.TemplateID)
+		}
+
+		pos := Position{X: entry.StartX, Y: entry.StartY}
+
+		if !room.Match.Board.IsPlayerZone(pos, playerIndex) {
+			return fmt.Errorf("position not in player zone: %v", pos)
+		}
+
+		instance := &PieceInstance{
+			TemplateID:       tmpl.ID,
+			OwnerID:          playerID,
+			CurrentHP:        tmpl.MaxHP,
+			Position:         pos,
+			AbilityCooldowns: make(map[string]int),
+			ActiveStates:     []StatusEffect{},
+			IsAlive:          true,
+		}
+
+		if !room.Match.Board.PlacePiece(instance, pos) {
+			return fmt.Errorf("cannot place piece at %v", pos)
+		}
+	}
+
+	room.DecksReady[playerIndex] = true
+	room.SendToPlayer(playerID, "deck_ready", map[string]bool{"ready": true})
+
+	// Si les deux joueurs ont soumis leur deck → démarre la partie
+	if room.DecksReady[0] && room.DecksReady[1] {
+		rm.startMatch(room)
+	}
+
+	return nil
+}
+
+func (rm *RoomManager) startMatch(room *MatchRoom) {
+	room.Match.Status = MatchStatusInProgress
+	room.Match.TurnStartedAt = time.Now()
+
+	state := rm.buildStatePayload(room)
+	for _, playerID := range room.Match.PlayerIDs {
+		room.SendToPlayer(playerID, "game_ready", map[string]interface{}{
+			"message": "both players ready, game starts",
+			"state":   state,
+		})
+	}
+
+	log.Printf("[RoomManager] Match started: %s", room.Match.ID)
 }

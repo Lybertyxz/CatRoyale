@@ -63,6 +63,17 @@ func dispatchMessages(hub *Hub, roomManager *game.RoomManager) {
 
 		case protocol.MsgJoinQueue:
 			log.Printf("[WS] Player joining queue: %s", msg.Client.UserID)
+
+		case protocol.MsgSubmitDeck:
+			var payload protocol.SubmitDeckPayload
+			if err := json.Unmarshal(msg.Envelope.Payload, &payload); err != nil {
+				log.Printf("[WS] Invalid deck payload: %v", err)
+				continue
+			}
+			if err := roomManager.SubmitDeck(msg.Client.UserID, payload); err != nil {
+				log.Printf("[WS] SubmitDeck error: %v", err)
+				msg.Client.SendEnvelope(protocol.MsgError, map[string]string{"message": err.Error()})
+			}
 		}
 	}
 }
