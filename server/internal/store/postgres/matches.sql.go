@@ -3,13 +3,12 @@
 //   sqlc v1.31.1
 // source: matches.sql
 
-package db
+package postgres
 
 import (
 	"context"
-	"database/sql"
 
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createMatch = `-- name: CreateMatch :one
@@ -27,7 +26,7 @@ type CreateMatchParams struct {
 }
 
 func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error) {
-	row := q.db.QueryRowContext(ctx, createMatch,
+	row := q.db.QueryRow(ctx, createMatch,
 		arg.ID,
 		arg.Player1ID,
 		arg.Player2ID,
@@ -58,20 +57,20 @@ RETURNING id, match_id, player_id, turn_number, action_type, piece_x, piece_y, t
 `
 
 type CreateMatchActionParams struct {
-	ID         string         `json:"id"`
-	MatchID    string         `json:"match_id"`
-	PlayerID   string         `json:"player_id"`
-	TurnNumber int32          `json:"turn_number"`
-	ActionType string         `json:"action_type"`
-	PieceX     int32          `json:"piece_x"`
-	PieceY     int32          `json:"piece_y"`
-	TargetX    int32          `json:"target_x"`
-	TargetY    int32          `json:"target_y"`
-	AbilityID  sql.NullString `json:"ability_id"`
+	ID         string      `json:"id"`
+	MatchID    string      `json:"match_id"`
+	PlayerID   string      `json:"player_id"`
+	TurnNumber int32       `json:"turn_number"`
+	ActionType string      `json:"action_type"`
+	PieceX     int32       `json:"piece_x"`
+	PieceY     int32       `json:"piece_y"`
+	TargetX    int32       `json:"target_x"`
+	TargetY    int32       `json:"target_y"`
+	AbilityID  pgtype.Text `json:"ability_id"`
 }
 
 func (q *Queries) CreateMatchAction(ctx context.Context, arg CreateMatchActionParams) (MatchAction, error) {
-	row := q.db.QueryRowContext(ctx, createMatchAction,
+	row := q.db.QueryRow(ctx, createMatchAction,
 		arg.ID,
 		arg.MatchID,
 		arg.PlayerID,
@@ -108,12 +107,12 @@ RETURNING id, player1_id, player2_id, winner_id, status, turn_number, turn_durat
 `
 
 type FinishMatchParams struct {
-	ID       string         `json:"id"`
-	WinnerID sql.NullString `json:"winner_id"`
+	ID       string      `json:"id"`
+	WinnerID pgtype.Text `json:"winner_id"`
 }
 
 func (q *Queries) FinishMatch(ctx context.Context, arg FinishMatchParams) (Match, error) {
-	row := q.db.QueryRowContext(ctx, finishMatch, arg.ID, arg.WinnerID)
+	row := q.db.QueryRow(ctx, finishMatch, arg.ID, arg.WinnerID)
 	var i Match
 	err := row.Scan(
 		&i.ID,
@@ -137,7 +136,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetMatchByID(ctx context.Context, id string) (Match, error) {
-	row := q.db.QueryRowContext(ctx, getMatchByID, id)
+	row := q.db.QueryRow(ctx, getMatchByID, id)
 	var i Match
 	err := row.Scan(
 		&i.ID,
@@ -168,7 +167,7 @@ type GetUserMatchHistoryParams struct {
 }
 
 func (q *Queries) GetUserMatchHistory(ctx context.Context, arg GetUserMatchHistoryParams) ([]Match, error) {
-	rows, err := q.db.QueryContext(ctx, getUserMatchHistory, arg.Player1ID, arg.Limit)
+	rows, err := q.db.Query(ctx, getUserMatchHistory, arg.Player1ID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -193,9 +192,6 @@ func (q *Queries) GetUserMatchHistory(ctx context.Context, arg GetUserMatchHisto
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -210,13 +206,13 @@ RETURNING id, player1_id, player2_id, winner_id, status, turn_number, turn_durat
 `
 
 type UpdateMatchStateParams struct {
-	ID         string                `json:"id"`
-	BoardState pqtype.NullRawMessage `json:"board_state"`
-	TurnNumber int32                 `json:"turn_number"`
+	ID         string `json:"id"`
+	BoardState []byte `json:"board_state"`
+	TurnNumber int32  `json:"turn_number"`
 }
 
 func (q *Queries) UpdateMatchState(ctx context.Context, arg UpdateMatchStateParams) (Match, error) {
-	row := q.db.QueryRowContext(ctx, updateMatchState, arg.ID, arg.BoardState, arg.TurnNumber)
+	row := q.db.QueryRow(ctx, updateMatchState, arg.ID, arg.BoardState, arg.TurnNumber)
 	var i Match
 	err := row.Scan(
 		&i.ID,
@@ -247,7 +243,7 @@ type UpdateMatchStatusParams struct {
 }
 
 func (q *Queries) UpdateMatchStatus(ctx context.Context, arg UpdateMatchStatusParams) (Match, error) {
-	row := q.db.QueryRowContext(ctx, updateMatchStatus, arg.ID, arg.Status)
+	row := q.db.QueryRow(ctx, updateMatchStatus, arg.ID, arg.Status)
 	var i Match
 	err := row.Scan(
 		&i.ID,

@@ -2,24 +2,20 @@
 // versions:
 //   sqlc v1.31.1
 
-package db
+package postgres
 
 import (
-	"database/sql"
-	"encoding/json"
-	"time"
-
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Deck struct {
-	ID         string    `json:"id"`
-	UserID     string    `json:"user_id"`
-	Name       string    `json:"name"`
-	IsActive   bool      `json:"is_active"`
-	TotalSlots int32     `json:"total_slots"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID         string             `json:"id"`
+	UserID     string             `json:"user_id"`
+	Name       string             `json:"name"`
+	IsActive   bool               `json:"is_active"`
+	TotalSlots int32              `json:"total_slots"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
 type DeckEntry struct {
@@ -31,69 +27,69 @@ type DeckEntry struct {
 }
 
 type Match struct {
-	ID           string                `json:"id"`
-	Player1ID    string                `json:"player1_id"`
-	Player2ID    string                `json:"player2_id"`
-	WinnerID     sql.NullString        `json:"winner_id"`
-	Status       string                `json:"status"`
-	TurnNumber   int32                 `json:"turn_number"`
-	TurnDuration int32                 `json:"turn_duration"`
-	BoardState   pqtype.NullRawMessage `json:"board_state"`
-	CreatedAt    time.Time             `json:"created_at"`
-	UpdatedAt    time.Time             `json:"updated_at"`
-	FinishedAt   sql.NullTime          `json:"finished_at"`
+	ID           string             `json:"id"`
+	Player1ID    string             `json:"player1_id"`
+	Player2ID    string             `json:"player2_id"`
+	WinnerID     pgtype.Text        `json:"winner_id"`
+	Status       string             `json:"status"`
+	TurnNumber   int32              `json:"turn_number"`
+	TurnDuration int32              `json:"turn_duration"`
+	BoardState   []byte             `json:"board_state"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
 }
 
 type MatchAction struct {
-	ID         string         `json:"id"`
-	MatchID    string         `json:"match_id"`
-	PlayerID   string         `json:"player_id"`
-	TurnNumber int32          `json:"turn_number"`
-	ActionType string         `json:"action_type"`
-	PieceX     int32          `json:"piece_x"`
-	PieceY     int32          `json:"piece_y"`
-	TargetX    int32          `json:"target_x"`
-	TargetY    int32          `json:"target_y"`
-	AbilityID  sql.NullString `json:"ability_id"`
-	CreatedAt  time.Time      `json:"created_at"`
+	ID         string             `json:"id"`
+	MatchID    string             `json:"match_id"`
+	PlayerID   string             `json:"player_id"`
+	TurnNumber int32              `json:"turn_number"`
+	ActionType string             `json:"action_type"`
+	PieceX     int32              `json:"piece_x"`
+	PieceY     int32              `json:"piece_y"`
+	TargetX    int32              `json:"target_x"`
+	TargetY    int32              `json:"target_y"`
+	AbilityID  pgtype.Text        `json:"ability_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type PieceTemplate struct {
-	ID             string                `json:"id"`
-	Name           string                `json:"name"`
-	Role           string                `json:"role"`
-	Rarity         string                `json:"rarity"`
-	SlotCost       int32                 `json:"slot_cost"`
-	MaxHp          int32                 `json:"max_hp"`
-	Attack         int32                 `json:"attack"`
-	Armor          int32                 `json:"armor"`
-	AttackRange    int32                 `json:"attack_range"`
-	MoveRange      int32                 `json:"move_range"`
-	CanJump        bool                  `json:"can_jump"`
-	MovementType   string                `json:"movement_type"`
-	MovementCustom pqtype.NullRawMessage `json:"movement_custom"`
-	Abilities      json.RawMessage       `json:"abilities"`
-	CreatedAt      time.Time             `json:"created_at"`
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	Role           string             `json:"role"`
+	Rarity         string             `json:"rarity"`
+	SlotCost       int32              `json:"slot_cost"`
+	MaxHp          int32              `json:"max_hp"`
+	Attack         int32              `json:"attack"`
+	Armor          int32              `json:"armor"`
+	AttackRange    int32              `json:"attack_range"`
+	MoveRange      int32              `json:"move_range"`
+	CanJump        bool               `json:"can_jump"`
+	MovementType   string             `json:"movement_type"`
+	MovementCustom []byte             `json:"movement_custom"`
+	Abilities      []byte             `json:"abilities"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type User struct {
-	ID          string    `json:"id"`
-	Username    string    `json:"username"`
-	Email       string    `json:"email"`
-	FirebaseUid string    `json:"firebase_uid"`
-	Xp          int32     `json:"xp"`
-	Level       int32     `json:"level"`
-	Rank        string    `json:"rank"`
-	Coins       int32     `json:"coins"`
-	Gems        int32     `json:"gems"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string             `json:"id"`
+	Username    string             `json:"username"`
+	Email       string             `json:"email"`
+	FirebaseUid string             `json:"firebase_uid"`
+	Xp          int32              `json:"xp"`
+	Level       int32              `json:"level"`
+	Rank        string             `json:"rank"`
+	Coins       int32              `json:"coins"`
+	Gems        int32              `json:"gems"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type UserPiece struct {
-	ID         string    `json:"id"`
-	UserID     string    `json:"user_id"`
-	TemplateID string    `json:"template_id"`
-	Level      int32     `json:"level"`
-	ObtainedAt time.Time `json:"obtained_at"`
+	ID         string             `json:"id"`
+	UserID     string             `json:"user_id"`
+	TemplateID string             `json:"template_id"`
+	Level      int32              `json:"level"`
+	ObtainedAt pgtype.Timestamptz `json:"obtained_at"`
 }

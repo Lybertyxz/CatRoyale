@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: users.sql
 
-package db
+package postgres
 
 import (
 	"context"
@@ -23,7 +23,7 @@ type CreateUserParams struct {
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser,
+	row := q.db.QueryRow(ctx, createUser,
 		arg.ID,
 		arg.Username,
 		arg.Email,
@@ -52,7 +52,7 @@ WHERE firebase_uid = $1
 `
 
 func (q *Queries) GetUserByFirebaseUID(ctx context.Context, firebaseUid string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByFirebaseUID, firebaseUid)
+	row := q.db.QueryRow(ctx, getUserByFirebaseUID, firebaseUid)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -76,7 +76,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByID, id)
+	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -107,7 +107,7 @@ type UpdateUserCoinsParams struct {
 }
 
 func (q *Queries) UpdateUserCoins(ctx context.Context, arg UpdateUserCoinsParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, updateUserCoins, arg.ID, arg.Coins)
+	row := q.db.QueryRow(ctx, updateUserCoins, arg.ID, arg.Coins)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -138,7 +138,7 @@ type UpdateUserRankParams struct {
 }
 
 func (q *Queries) UpdateUserRank(ctx context.Context, arg UpdateUserRankParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, updateUserRank, arg.ID, arg.Rank)
+	row := q.db.QueryRow(ctx, updateUserRank, arg.ID, arg.Rank)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -169,7 +169,7 @@ type UpdateUserXPParams struct {
 }
 
 func (q *Queries) UpdateUserXP(ctx context.Context, arg UpdateUserXPParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, updateUserXP, arg.ID, arg.Xp)
+	row := q.db.QueryRow(ctx, updateUserXP, arg.ID, arg.Xp)
 	var i User
 	err := row.Scan(
 		&i.ID,

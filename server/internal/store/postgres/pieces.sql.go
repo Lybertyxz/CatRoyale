@@ -3,14 +3,12 @@
 //   sqlc v1.31.1
 // source: pieces.sql
 
-package db
+package postgres
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
-	"github.com/sqlc-dev/pqtype"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addPieceToUser = `-- name: AddPieceToUser :one
@@ -26,7 +24,7 @@ type AddPieceToUserParams struct {
 }
 
 func (q *Queries) AddPieceToUser(ctx context.Context, arg AddPieceToUserParams) (UserPiece, error) {
-	row := q.db.QueryRowContext(ctx, addPieceToUser, arg.ID, arg.UserID, arg.TemplateID)
+	row := q.db.QueryRow(ctx, addPieceToUser, arg.ID, arg.UserID, arg.TemplateID)
 	var i UserPiece
 	err := row.Scan(
 		&i.ID,
@@ -50,24 +48,24 @@ RETURNING id, name, role, rarity, slot_cost, max_hp, attack, armor, attack_range
 `
 
 type CreatePieceTemplateParams struct {
-	ID             string                `json:"id"`
-	Name           string                `json:"name"`
-	Role           string                `json:"role"`
-	Rarity         string                `json:"rarity"`
-	SlotCost       int32                 `json:"slot_cost"`
-	MaxHp          int32                 `json:"max_hp"`
-	Attack         int32                 `json:"attack"`
-	Armor          int32                 `json:"armor"`
-	AttackRange    int32                 `json:"attack_range"`
-	MoveRange      int32                 `json:"move_range"`
-	CanJump        bool                  `json:"can_jump"`
-	MovementType   string                `json:"movement_type"`
-	MovementCustom pqtype.NullRawMessage `json:"movement_custom"`
-	Abilities      json.RawMessage       `json:"abilities"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Role           string `json:"role"`
+	Rarity         string `json:"rarity"`
+	SlotCost       int32  `json:"slot_cost"`
+	MaxHp          int32  `json:"max_hp"`
+	Attack         int32  `json:"attack"`
+	Armor          int32  `json:"armor"`
+	AttackRange    int32  `json:"attack_range"`
+	MoveRange      int32  `json:"move_range"`
+	CanJump        bool   `json:"can_jump"`
+	MovementType   string `json:"movement_type"`
+	MovementCustom []byte `json:"movement_custom"`
+	Abilities      []byte `json:"abilities"`
 }
 
 func (q *Queries) CreatePieceTemplate(ctx context.Context, arg CreatePieceTemplateParams) (PieceTemplate, error) {
-	row := q.db.QueryRowContext(ctx, createPieceTemplate,
+	row := q.db.QueryRow(ctx, createPieceTemplate,
 		arg.ID,
 		arg.Name,
 		arg.Role,
@@ -110,7 +108,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetPieceTemplate(ctx context.Context, id string) (PieceTemplate, error) {
-	row := q.db.QueryRowContext(ctx, getPieceTemplate, id)
+	row := q.db.QueryRow(ctx, getPieceTemplate, id)
 	var i PieceTemplate
 	err := row.Scan(
 		&i.ID,
@@ -140,18 +138,18 @@ WHERE up.user_id = $1
 `
 
 type GetUserPiecesRow struct {
-	ID         string    `json:"id"`
-	UserID     string    `json:"user_id"`
-	TemplateID string    `json:"template_id"`
-	Level      int32     `json:"level"`
-	ObtainedAt time.Time `json:"obtained_at"`
-	Name       string    `json:"name"`
-	Role       string    `json:"role"`
-	Rarity     string    `json:"rarity"`
+	ID         string             `json:"id"`
+	UserID     string             `json:"user_id"`
+	TemplateID string             `json:"template_id"`
+	Level      int32              `json:"level"`
+	ObtainedAt pgtype.Timestamptz `json:"obtained_at"`
+	Name       string             `json:"name"`
+	Role       string             `json:"role"`
+	Rarity     string             `json:"rarity"`
 }
 
 func (q *Queries) GetUserPieces(ctx context.Context, userID string) ([]GetUserPiecesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUserPieces, userID)
+	rows, err := q.db.Query(ctx, getUserPieces, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -173,9 +171,6 @@ func (q *Queries) GetUserPieces(ctx context.Context, userID string) ([]GetUserPi
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -187,7 +182,7 @@ SELECT id, name, role, rarity, slot_cost, max_hp, attack, armor, attack_range, m
 `
 
 func (q *Queries) ListPieceTemplates(ctx context.Context) ([]PieceTemplate, error) {
-	rows, err := q.db.QueryContext(ctx, listPieceTemplates)
+	rows, err := q.db.Query(ctx, listPieceTemplates)
 	if err != nil {
 		return nil, err
 	}
@@ -215,9 +210,6 @@ func (q *Queries) ListPieceTemplates(ctx context.Context) ([]PieceTemplate, erro
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

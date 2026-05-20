@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: decks.sql
 
-package db
+package postgres
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type AddDeckEntryParams struct {
 }
 
 func (q *Queries) AddDeckEntry(ctx context.Context, arg AddDeckEntryParams) (DeckEntry, error) {
-	row := q.db.QueryRowContext(ctx, addDeckEntry,
+	row := q.db.QueryRow(ctx, addDeckEntry,
 		arg.ID,
 		arg.DeckID,
 		arg.TemplateID,
@@ -55,7 +55,7 @@ type CreateDeckParams struct {
 }
 
 func (q *Queries) CreateDeck(ctx context.Context, arg CreateDeckParams) (Deck, error) {
-	row := q.db.QueryRowContext(ctx, createDeck, arg.ID, arg.UserID, arg.Name)
+	row := q.db.QueryRow(ctx, createDeck, arg.ID, arg.UserID, arg.Name)
 	var i Deck
 	err := row.Scan(
 		&i.ID,
@@ -75,7 +75,7 @@ WHERE id = $1
 `
 
 func (q *Queries) DeleteDeck(ctx context.Context, id string) error {
-	_, err := q.db.ExecContext(ctx, deleteDeck, id)
+	_, err := q.db.Exec(ctx, deleteDeck, id)
 	return err
 }
 
@@ -85,7 +85,7 @@ WHERE deck_id = $1
 `
 
 func (q *Queries) DeleteDeckEntries(ctx context.Context, deckID string) error {
-	_, err := q.db.ExecContext(ctx, deleteDeckEntries, deckID)
+	_, err := q.db.Exec(ctx, deleteDeckEntries, deckID)
 	return err
 }
 
@@ -96,7 +96,7 @@ LIMIT 1
 `
 
 func (q *Queries) GetActiveDeck(ctx context.Context, userID string) (Deck, error) {
-	row := q.db.QueryRowContext(ctx, getActiveDeck, userID)
+	row := q.db.QueryRow(ctx, getActiveDeck, userID)
 	var i Deck
 	err := row.Scan(
 		&i.ID,
@@ -116,7 +116,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetDeckByID(ctx context.Context, id string) (Deck, error) {
-	row := q.db.QueryRowContext(ctx, getDeckByID, id)
+	row := q.db.QueryRow(ctx, getDeckByID, id)
 	var i Deck
 	err := row.Scan(
 		&i.ID,
@@ -136,7 +136,7 @@ WHERE deck_id = $1
 `
 
 func (q *Queries) GetDeckEntries(ctx context.Context, deckID string) ([]DeckEntry, error) {
-	rows, err := q.db.QueryContext(ctx, getDeckEntries, deckID)
+	rows, err := q.db.Query(ctx, getDeckEntries, deckID)
 	if err != nil {
 		return nil, err
 	}
@@ -155,9 +155,6 @@ func (q *Queries) GetDeckEntries(ctx context.Context, deckID string) ([]DeckEntr
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -171,7 +168,7 @@ ORDER BY created_at DESC
 `
 
 func (q *Queries) GetDecksByUser(ctx context.Context, userID string) ([]Deck, error) {
-	rows, err := q.db.QueryContext(ctx, getDecksByUser, userID)
+	rows, err := q.db.Query(ctx, getDecksByUser, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -192,9 +189,6 @@ func (q *Queries) GetDecksByUser(ctx context.Context, userID string) ([]Deck, er
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -214,7 +208,7 @@ type UpdateDeckActiveParams struct {
 }
 
 func (q *Queries) UpdateDeckActive(ctx context.Context, arg UpdateDeckActiveParams) (Deck, error) {
-	row := q.db.QueryRowContext(ctx, updateDeckActive, arg.ID, arg.IsActive)
+	row := q.db.QueryRow(ctx, updateDeckActive, arg.ID, arg.IsActive)
 	var i Deck
 	err := row.Scan(
 		&i.ID,
