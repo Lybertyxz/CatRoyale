@@ -31,3 +31,7 @@ func NewStore(databaseURL string) (*Store, error) {
 func (s *Store) Close() {
 	s.pool.Close()
 }
+
+func (s *Store) Pool() *pgxpool.Pool {
+	return s.pool
+}
