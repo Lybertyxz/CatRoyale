@@ -29,6 +29,7 @@ func NewRouter(
 	authHandler := handlers.NewAuthHandler(userService)
 	boosterHandler := handlers.NewBoosterHandler(pgStore, boosterService)
 	userHandler := handlers.NewUserHandler(pgStore)
+	deckHandler := handlers.NewDeckHandler(pgStore)
 
 	// Health
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -37,13 +38,10 @@ func NewRouter(
 
 	api := app.Group("/api/v1")
 
-	// Auth — public
+	// ─── Auth ────────────────────────────────────────────
 	api.Post("/auth/login", authHandler.Login)
 
-	// Boosters — public (liste)
-	api.Get("/boosters", boosterHandler.ListBoosters)
-
-	// WebSocket
+	// ─── WebSocket ───────────────────────────────────────
 	api.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
 			return c.Next()
@@ -52,12 +50,25 @@ func NewRouter(
 	})
 	api.Get("/ws", ws.Handler(hub, firebase, roomManager, queue))
 
-	// Routes protégées
+	// ─── Protected ───────────────────────────────────────
 	protected := api.Group("", middleware.Protected(firebase))
+
+	// User
 	protected.Get("/me", authHandler.Me)
 	protected.Get("/profile", userHandler.GetProfile)
 	protected.Get("/pieces", userHandler.GetPieces)
+
+	// Boosters
+	api.Get("/boosters", boosterHandler.ListBoosters)
 	protected.Post("/boosters/:id/open", boosterHandler.OpenBooster)
+
+	// Decks
+	protected.Get("/decks", deckHandler.ListDecks)
+	protected.Post("/decks", deckHandler.CreateDeck)
+	protected.Get("/decks/:id", deckHandler.GetDeck)
+	protected.Put("/decks/:id", deckHandler.SaveDeck)
+	protected.Put("/decks/:id/active", deckHandler.SetActiveDeck)
+	protected.Delete("/decks/:id", deckHandler.DeleteDeck)
 
 	return app
 }
