@@ -48,6 +48,7 @@ namespace CatRoyale.UI
 
     public static class ViewNames
     {
+        public const string Login = "Login";
         public const string Menu = "Menu";
         public const string Collection = "Collection";
         public const string DeckBuilder = "DeckBuilder";
