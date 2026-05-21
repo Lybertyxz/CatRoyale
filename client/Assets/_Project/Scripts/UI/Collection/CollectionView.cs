@@ -19,6 +19,7 @@ namespace CatRoyale.UI.Collection
 
         [Header("Filter")]
         [SerializeField] private TMP_Dropdown _rarityFilter;
+        [SerializeField] private TMP_Dropdown _roleFilter;
 
         private List<PieceCardData> _allPieces = new();
 
@@ -26,6 +27,7 @@ namespace CatRoyale.UI.Collection
         {
             _backButton?.onClick.AddListener(OnBackClicked);
             _rarityFilter?.onValueChanged.AddListener(OnFilterChanged);
+            _roleFilter?.onValueChanged.AddListener(OnRoleFilterChanged);
         }
 
         private void OnEnable()
@@ -33,15 +35,11 @@ namespace CatRoyale.UI.Collection
             LoadPieces();
         }
 
-        private async void LoadPieces()
+        private void LoadPieces()
         {
-            var network = ServiceLocator.Get<NetworkService>();
-            if (network == null) return;
-
-            // TODO: appel HTTP GET /api/v1/pieces
-            // Pour l'instant on affiche des données placeholder
-            var placeholders = GetPlaceholderPieces();
-            DisplayPieces(placeholders);
+            // TODO: remplacer par vrai appel HTTP GET /api/v1/pieces
+            _allPieces = GetPlaceholderPieces();
+            DisplayPieces(_allPieces);
         }
 
         private void DisplayPieces(List<PieceCardData> pieces)
@@ -61,18 +59,32 @@ namespace CatRoyale.UI.Collection
             // TODO: ouvrir popup détail
         }
 
+        private void OnRoleFilterChanged(int index)
+        {
+            string[] roles = { "all", "pawn", "rook", "knight", "bishop", "queen", "king" };
+            string selectedRole = roles[index];
+            string selectedRarity = new string[] { "all", "common", "rare", "epic", "legendary" }[_rarityFilter.value];
+
+            var filtered = _allPieces.FindAll(p =>
+                (selectedRarity == "all" || p.Rarity == selectedRarity) &&
+                (selectedRole == "all" || p.Role.ToLower() == selectedRole)
+            );
+
+            DisplayPieces(filtered);
+        }
+
         private void OnFilterChanged(int index)
         {
             string[] rarities = { "all", "common", "rare", "epic", "legendary" };
-            string selected = rarities[index];
+            string selectedRarity = rarities[index];
+            string[] roles = { "all", "pawn", "rook", "knight", "bishop", "queen", "king" };
+            string selectedRole = roles[_roleFilter.value];
 
-            if (selected == "all")
-            {
-                DisplayPieces(_allPieces);
-                return;
-            }
+            var filtered = _allPieces.FindAll(p =>
+                (selectedRarity == "all" || p.Rarity == selectedRarity) &&
+                (selectedRole == "all" || p.Role.ToLower() == selectedRole)
+            );
 
-            var filtered = _allPieces.FindAll(p => p.Rarity == selected);
             DisplayPieces(filtered);
         }
 
