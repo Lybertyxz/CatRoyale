@@ -21,12 +21,10 @@ namespace CatRoyale.Core
         {
             Debug.Log("[Bootstrap] Initializing services...");
 
-            // Initialise les services core
             SceneLoader.Initialize();
+            UIManager.Initialize();
+            ApiService.Initialize("http://localhost:8080");
             GameManager.Instance.SetState(GameState.Boot);
-
-            // TODO: AuthService.Initialize()
-            // TODO: NetworkService.Initialize()
 
             await System.Threading.Tasks.Task.Delay(100);
             Debug.Log("[Bootstrap] Services ready.");
