@@ -35,10 +35,32 @@ namespace CatRoyale.UI.Collection
             LoadPieces();
         }
 
-        private void LoadPieces()
+        private async void LoadPieces()
         {
-            // TODO: remplacer par vrai appel HTTP GET /api/v1/pieces
-            _allPieces = GetPlaceholderPieces();
+            var api = ServiceLocator.Get<ApiService>();
+            var pieces = await api.GetPieces();
+
+            if (pieces == null || pieces.Count == 0)
+            {
+                Debug.LogWarning("[CollectionView] No pieces received, using placeholders.");
+                _allPieces = GetPlaceholderPieces();
+            }
+            else
+            {
+                _allPieces = pieces.ConvertAll(p => new PieceCardData
+                {
+                    ID = p.ID,
+                    Name = p.Name,
+                    Role = p.Role,
+                    Rarity = p.Rarity,
+                    SlotCost = p.SlotCost,
+                    MaxHP = p.MaxHP,
+                    Attack = p.Attack,
+                    Armor = p.Armor,
+                    IsOwned = true
+                });
+            }
+
             DisplayPieces(_allPieces);
         }
 

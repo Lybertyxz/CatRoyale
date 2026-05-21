@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using CatRoyale.Core;
 using CatRoyale.UI.Collection;
+using CatRoyale.Network;
 
 namespace CatRoyale.UI.DeckBuilder
 {
@@ -64,13 +65,34 @@ namespace CatRoyale.UI.DeckBuilder
             }
         }
 
-        private void LoadCollection()
+        private async void LoadCollection()
         {
             foreach (Transform child in _collectionContainer)
                 Destroy(child.gameObject);
 
-            // TODO: remplacer par vrai appel HTTP
-            _collection = GetPlaceholderPieces();
+            var api = ServiceLocator.Get<ApiService>();
+            var pieces = await api.GetPieces();
+
+            if (pieces == null || pieces.Count == 0)
+            {
+                Debug.LogWarning("[DeckBuilderView] No pieces received, using placeholders.");
+                _collection = GetPlaceholderPieces();
+            }
+            else
+            {
+                _collection = pieces.ConvertAll(p => new PieceCardData
+                {
+                    ID = p.ID,
+                    Name = p.Name,
+                    Role = p.Role,
+                    Rarity = p.Rarity,
+                    SlotCost = p.SlotCost,
+                    MaxHP = p.MaxHP,
+                    Attack = p.Attack,
+                    Armor = p.Armor,
+                    IsOwned = true
+                });
+            }
 
             foreach (var piece in _collection)
             {
