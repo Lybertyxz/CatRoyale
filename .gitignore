@@ -13,6 +13,8 @@ server/tmp/
 
 # Firebase
 server/firebase-service-account.json
+client/Assets/google-services.json
+client/Assets/GoogleService-Info.plist
 
 # Env
 .env

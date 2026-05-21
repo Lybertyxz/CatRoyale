@@ -27,6 +27,9 @@ namespace CatRoyale.Core
             SceneLoader.Initialize();
             UIManager.Initialize();
             ApiService.Initialize("http://localhost:8080");
+
+            await AuthService.Initialize();
+
             GameManager.Instance.SetState(GameState.Boot);
 
             await System.Threading.Tasks.Task.Delay(100);
