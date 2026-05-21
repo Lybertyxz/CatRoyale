@@ -28,6 +28,7 @@ namespace CatRoyale.UI.DeckBuilder
 
         private const int MaxSlots = 20;
         private int _usedSlots = 0;
+        private string _currentDeckID;
 
         // Board = grille 8x2 (zone joueur)
         private DeckSlotUI[,] _boardSlots = new DeckSlotUI[2, 8];
@@ -145,10 +146,45 @@ namespace CatRoyale.UI.DeckBuilder
                 _slotsUsedText.text = $"{_usedSlots}/{MaxSlots} slots";
         }
 
-        private void OnSaveClicked()
+        private async void OnSaveClicked()
         {
             Debug.Log("[DeckBuilder] Saving deck...");
-            // TODO: appel HTTP PUT /api/v1/decks/:id
+
+            var api = ServiceLocator.Get<ApiService>();
+
+            // Crée le deck si pas encore créé
+            if (string.IsNullOrEmpty(_currentDeckID))
+            {
+                var deck = await api.CreateDeck("Mon Deck");
+                if (deck == null)
+                {
+                    Debug.LogError("[DeckBuilder] Failed to create deck.");
+                    return;
+                }
+                _currentDeckID = deck.ID;
+            }
+
+            // Construit la liste des entrées
+            var entries = new List<DeckEntryRequest>();
+            for (int y = 0; y < 2; y++)
+            {
+                for (int x = 0; x < 8; x++)
+                {
+                    var slot = _boardSlots[y, x];
+                    if (!slot.IsEmpty)
+                    {
+                        entries.Add(new DeckEntryRequest
+                        {
+                            TemplateID = slot.Piece.ID,
+                            StartX = x,
+                            StartY = y
+                        });
+                    }
+                }
+            }
+
+            await api.SaveDeck(_currentDeckID, entries);
+            Debug.Log($"[DeckBuilder] Deck saved with {entries.Count} pieces.");
         }
 
         private void OnBackClicked()
