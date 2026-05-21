@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using CatRoyale.Core;
 using CatRoyale.UI.Collection;
+using CatRoyale.Network;
 
 namespace CatRoyale.UI.Booster
 {
@@ -34,29 +35,76 @@ namespace CatRoyale.UI.Booster
             LoadBoosters();
         }
 
-        private void LoadBoosters()
+        private async void LoadBoosters()
         {
             foreach (Transform child in _boosterContainer)
                 Destroy(child.gameObject);
 
-            // TODO: remplacer par vrai appel HTTP GET /api/v1/boosters
-            var boosters = GetPlaceholderBoosters();
+            var api = ServiceLocator.Get<ApiService>();
+            var boosters = await api.GetBoosters();
+
+            if (boosters == null || boosters.Count == 0)
+            {
+                Debug.LogWarning("[BoosterView] No boosters received, using placeholders.");
+                boosters = GetPlaceholderBoosters().ConvertAll(b => new BoosterResponse
+                {
+                    ID = b.ID,
+                    Name = b.Name,
+                    Description = b.Description,
+                    PriceCoins = b.PriceCoins,
+                    PriceGems = b.PriceGems,
+                    PiecesCount = b.PiecesCount
+                });
+            }
 
             foreach (var booster in boosters)
             {
                 var card = Instantiate(_boosterCardPrefab, _boosterContainer);
                 var boosterCopy = booster;
-                card.GetComponent<BoosterCardUI>()?.Setup(booster, () => OnOpenBooster(boosterCopy));
+                card.GetComponent<BoosterCardUI>()?.Setup(new BoosterData
+                {
+                    ID = boosterCopy.ID,
+                    Name = boosterCopy.Name,
+                    Description = boosterCopy.Description,
+                    PriceCoins = boosterCopy.PriceCoins,
+                    PriceGems = boosterCopy.PriceGems,
+                    PiecesCount = boosterCopy.PiecesCount
+                }, () => OnOpenBooster(new BoosterData
+                {
+                    ID = boosterCopy.ID,
+                    Name = boosterCopy.Name,
+                    PiecesCount = boosterCopy.PiecesCount
+                }));
             }
         }
 
-        private void OnOpenBooster(BoosterData booster)
+        private async void OnOpenBooster(BoosterData booster)
         {
             Debug.Log($"[BoosterView] Opening booster: {booster.Name}");
 
-            // TODO: appel HTTP POST /api/v1/boosters/:id/open
-            // Pour l'instant on simule l'ouverture
-            var pieces = SimulateBoosterOpening(booster);
+            var api = ServiceLocator.Get<ApiService>();
+            var result = await api.OpenBooster(booster.ID);
+
+            if (result?.Pieces == null || result.Pieces.Count == 0)
+            {
+                Debug.LogWarning("[BoosterView] No pieces received, using simulation.");
+                ShowResult(SimulateBoosterOpening(booster));
+                return;
+            }
+
+            var pieces = result.Pieces.ConvertAll(p => new PieceCardData
+            {
+                ID = p.ID,
+                Name = p.Name,
+                Role = p.Role,
+                Rarity = p.Rarity,
+                SlotCost = p.SlotCost,
+                MaxHP = p.MaxHP,
+                Attack = p.Attack,
+                Armor = p.Armor,
+                IsOwned = true
+            });
+
             ShowResult(pieces);
         }
 
