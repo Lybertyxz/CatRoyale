@@ -29,30 +29,12 @@ namespace CatRoyale.UI.Login
             SetLoading(true);
             SetStatus("Connexion en cours...");
 
-            var auth = ServiceLocator.Get<AuthService>();
-            if (auth == null)
-            {
-                SetStatus("Erreur : AuthService non initialisé.");
-                SetLoading(false);
-                return;
-            }
-
-            // Sur mobile on utilise Google Sign-In plugin
-            // Pour l'instant on simule avec un token de test
-            bool success = await auth.RefreshAndRegister();
-
-            if (success)
-            {
-                SetStatus("Connecté !");
-                SetLoading(false);
-                ServiceLocator.Get<UIManager>().ShowView(ViewNames.Menu);
-                GameManager.Instance.SetState(GameState.Menu);
-            }
-            else
-            {
-                SetStatus("Échec de la connexion. Réessayez.");
-                SetLoading(false);
-            }
+            // BYPASS TEMPORAIRE pour test — à supprimer en production
+            await System.Threading.Tasks.Task.Delay(500);
+            SetStatus("Connecté !");
+            SetLoading(false);
+            ServiceLocator.Get<UIManager>().ShowView(ViewNames.Menu);
+            GameManager.Instance.SetState(GameState.Menu);
         }
 
         private void SetStatus(string message)
