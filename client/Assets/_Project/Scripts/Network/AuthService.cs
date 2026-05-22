@@ -39,7 +39,6 @@ namespace CatRoyale.Core
             }
         }
 
-        // Login avec Google
         public async Task<bool> LoginWithGoogle(string googleIdToken, string accessToken)
         {
             try
@@ -60,7 +59,6 @@ namespace CatRoyale.Core
             }
         }
 
-        // Récupère le token Firebase et enregistre avec le backend
         public async Task<bool> RefreshAndRegister()
         {
             if (_currentUser == null) return false;
@@ -87,13 +85,9 @@ namespace CatRoyale.Core
             var result = await api.Login(firebaseToken);
 
             if (result.Success)
-            {
                 Debug.Log($"[AuthService] Backend registered: {result.Data.Username}");
-            }
             else
-            {
                 Debug.LogWarning($"[AuthService] Backend registration failed: {result.Error}");
-            }
         }
 
         public void Logout()

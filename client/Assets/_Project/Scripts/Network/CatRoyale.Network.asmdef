@@ -1,0 +1,16 @@
+{
+    "name": "CatRoyale.Network",
+    "rootNamespace": "",
+    "references": [
+        "GUID:749637e90833d7c409fa7736ba994154"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

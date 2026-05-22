@@ -123,15 +123,4 @@ namespace CatRoyale.Gameplay
             Destroy(gameObject);
         }
     }
-
-    public class PieceStateData
-    {
-        public string TemplateID;
-        public string OwnerID;
-        public int CurrentHP;
-        public int MaxHP;
-        public int X;
-        public int Y;
-        public bool IsAlive;
-    }
 }

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"C:/Program Files/Unity/Hub/Editor\" -name \"TextMeshPro.asmdef.meta\" 2>/dev/null | head -3)",
+      "Read(//c/Program Files/Unity/Hub/Editor/**)"
+    ]
+  }
+}

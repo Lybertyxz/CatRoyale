@@ -1,4 +1,8 @@
 ﻿<Solution>
   <Project Path="Firebase.App.Internal.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="CatRoyale.Gameplay.csproj" />
+  <Project Path="CatRoyale.UI.csproj" />
+  <Project Path="CatRoyale.Core.csproj" />
+  <Project Path="CatRoyale.Network.csproj" />
+  <Project Path="CatRoyale.App.csproj" />
 </Solution>

@@ -1,0 +1,19 @@
+{
+    "name": "CatRoyale.App",
+    "rootNamespace": "",
+    "references": [
+        "GUID:749637e90833d7c409fa7736ba994154",
+        "GUID:59fe46d6998eaf04ea36f670ee9bd482",
+        "GUID:877649edc16c2f847872328378c22641",
+        "GUID:9cbfd310f4efdba479c36119c753db0f"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

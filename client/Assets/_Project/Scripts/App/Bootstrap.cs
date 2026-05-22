@@ -1,9 +1,9 @@
 using UnityEngine;
+using CatRoyale.Core;
 using CatRoyale.UI;
 using CatRoyale.Network;
 
-namespace CatRoyale.Core
-
+namespace CatRoyale.App
 {
     public class Bootstrap : MonoBehaviour
     {

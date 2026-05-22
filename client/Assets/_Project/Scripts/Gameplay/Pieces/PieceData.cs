@@ -30,23 +30,23 @@ namespace CatRoyale.Gameplay
         public List<AbilityData> Abilities;
     }
 
-[Serializable]
-public class AbilityData
-{
-    [Header("Identity")]
-    public string AbilityID;
-    public string AbilityName;
-    public AbilityType Type;
-    public int Cooldown;
-    [TextArea] public string Description;
-    public Sprite Icon;
+    [Serializable]
+    public class AbilityData
+    {
+        [Header("Identity")]
+        public string AbilityID;
+        public string AbilityName;
+        public AbilityType Type;
+        public int Cooldown;
+        [TextArea] public string Description;
+        public Sprite Icon;
 
-    [Header("Attack Pattern")]
-    public AttackPattern AttackPattern;
+        [Header("Attack Pattern")]
+        public AttackPattern AttackPattern;
 
-    [Header("Effects")]
-    public List<AbilityEffect> Effects;
-}
+        [Header("Effects")]
+        public List<AbilityEffect> Effects;
+    }
 
     public enum PieceRole { Pawn, Rook, Knight, Bishop, Queen, King }
     public enum Rarity { Common, Rare, Epic, Legendary }
