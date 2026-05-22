@@ -24,11 +24,14 @@ func (h *UserHandler) GetProfile(c *fiber.Ctx) error {
 }
 
 func (h *UserHandler) GetPieces(c *fiber.Ctx) error {
-	userID := c.Locals("userID").(string)
-
-	pieces, err := h.store.GetUserPieces(c.Context(), userID)
+	pieces, err := h.store.ListPieceTemplates(c.Context())
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
+
+	if pieces == nil {
+		return c.JSON([]interface{}{})
+	}
+
 	return c.JSON(pieces)
 }

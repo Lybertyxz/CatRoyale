@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,7 +14,8 @@ namespace CatRoyale.Network
     {
         private readonly HttpClient _client;
         private string _baseUrl;
-        private string _authToken;
+        private const int MaxRetries = 3;
+        private const float RetryDelay = 1f;
 
         public static void Initialize(string baseUrl)
         {
@@ -30,97 +32,139 @@ namespace CatRoyale.Network
 
         public void SetAuthToken(string token)
         {
-            _authToken = token;
             _client.DefaultRequestHeaders.Remove("Authorization");
-            _client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+            if (!string.IsNullOrEmpty(token))
+                _client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
         }
 
         // ─── Auth ────────────────────────────────────────────
-        public async Task<UserResponse> Login(string firebaseToken)
-        {
-            var body = JsonConvert.SerializeObject(new { token = firebaseToken });
-            return await Post<UserResponse>("/api/v1/auth/login", body);
-        }
+        public async Task<ApiResult<UserResponse>> Login(string firebaseToken)
+            => await Post<UserResponse>("/api/v1/auth/login",
+                JsonConvert.SerializeObject(new { token = firebaseToken }));
 
         // ─── Boosters ─────────────────────────────────────────
-        public async Task<List<BoosterResponse>> GetBoosters()
-        {
-            return await Get<List<BoosterResponse>>("/api/v1/boosters");
-        }
+        public async Task<ApiResult<List<BoosterResponse>>> GetBoosters()
+            => await Get<List<BoosterResponse>>("/api/v1/boosters");
 
-        public async Task<OpenBoosterResponse> OpenBooster(string boosterID)
-        {
-            return await Post<OpenBoosterResponse>($"/api/v1/boosters/{boosterID}/open", "{}");
-        }
+        public async Task<ApiResult<OpenBoosterResponse>> OpenBooster(string boosterID)
+            => await Post<OpenBoosterResponse>($"/api/v1/boosters/{boosterID}/open", "{}");
 
         // ─── Pieces ───────────────────────────────────────────
-        public async Task<List<PieceResponse>> GetPieces()
-        {
-            return await Get<List<PieceResponse>>("/api/v1/pieces");
-        }
+        public async Task<ApiResult<List<PieceResponse>>> GetPieces()
+            => await Get<List<PieceResponse>>("/api/v1/pieces");
 
         // ─── Decks ────────────────────────────────────────────
-        public async Task<List<DeckResponse>> GetDecks()
-        {
-            return await Get<List<DeckResponse>>("/api/v1/decks");
-        }
+        public async Task<ApiResult<List<DeckResponse>>> GetDecks()
+            => await Get<List<DeckResponse>>("/api/v1/decks");
 
-        public async Task<DeckResponse> CreateDeck(string name)
-        {
-            var body = JsonConvert.SerializeObject(new { name });
-            return await Post<DeckResponse>("/api/v1/decks", body);
-        }
+        public async Task<ApiResult<DeckResponse>> CreateDeck(string name)
+            => await Post<DeckResponse>("/api/v1/decks",
+                JsonConvert.SerializeObject(new { name }));
 
-        public async Task SaveDeck(string deckID, List<DeckEntryRequest> entries)
+        public async Task<ApiResult<bool>> SaveDeck(string deckID, List<DeckEntryRequest> entries)
         {
-            var body = JsonConvert.SerializeObject(new { entries });
-            await Put($"/api/v1/decks/{deckID}", body);
+            var result = await Put($"/api/v1/decks/{deckID}",
+                JsonConvert.SerializeObject(new { entries }));
+            return result.Success
+                ? ApiResult<bool>.Ok(true)
+                : ApiResult<bool>.Fail(result.Error, result.StatusCode);
         }
 
         // ─── HTTP Helpers ─────────────────────────────────────
-        private async Task<T> Get<T>(string endpoint)
+        private async Task<ApiResult<T>> Get<T>(string endpoint)
         {
-            try
+            return await ExecuteWithRetry(async () =>
             {
                 var response = await _client.GetAsync(_baseUrl + endpoint);
-                var json = await response.Content.ReadAsStringAsync();
-                return JsonConvert.DeserializeObject<T>(json);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[ApiService] GET {endpoint} failed: {e.Message}");
-                return default;
-            }
+                return await ParseResponse<T>(response);
+            }, endpoint);
         }
 
-        private async Task<T> Post<T>(string endpoint, string body)
+        private async Task<ApiResult<T>> Post<T>(string endpoint, string body)
         {
-            try
+            return await ExecuteWithRetry(async () =>
             {
                 var content = new StringContent(body, Encoding.UTF8, "application/json");
                 var response = await _client.PostAsync(_baseUrl + endpoint, content);
-                var json = await response.Content.ReadAsStringAsync();
-                return JsonConvert.DeserializeObject<T>(json);
+                return await ParseResponse<T>(response);
+            }, endpoint);
+        }
+
+        private async Task<ApiResult<bool>> Put(string endpoint, string body)
+        {
+            return await ExecuteWithRetry(async () =>
+            {
+                var content = new StringContent(body, Encoding.UTF8, "application/json");
+                var response = await _client.PutAsync(_baseUrl + endpoint, content);
+                if (response.IsSuccessStatusCode)
+                    return ApiResult<bool>.Ok(true, (int)response.StatusCode);
+                var error = await response.Content.ReadAsStringAsync();
+                return ApiResult<bool>.Fail(ParseError(error), (int)response.StatusCode);
+            }, endpoint);
+        }
+
+        private async Task<ApiResult<T>> ParseResponse<T>(HttpResponseMessage response)
+        {
+            var json = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = ParseError(json);
+                Debug.LogWarning($"[ApiService] {(int)response.StatusCode} — {error}");
+                return ApiResult<T>.Fail(error, (int)response.StatusCode);
+            }
+
+            try
+            {
+                var data = JsonConvert.DeserializeObject<T>(json);
+                return ApiResult<T>.Ok(data, (int)response.StatusCode);
             }
             catch (Exception e)
             {
-                Debug.LogError($"[ApiService] POST {endpoint} failed: {e.Message}");
-                return default;
+                Debug.LogError($"[ApiService] Deserialize error: {e.Message}\nJSON: {json}");
+                return ApiResult<T>.Fail($"Parse error: {e.Message}");
             }
         }
 
-        private async Task Put(string endpoint, string body)
+        private async Task<ApiResult<T>> ExecuteWithRetry<T>(
+            Func<Task<ApiResult<T>>> action, string endpoint)
+        {
+            int attempts = 0;
+            while (attempts < MaxRetries)
+            {
+                try
+                {
+                    return await action();
+                }
+                catch (Exception e)
+                {
+                    attempts++;
+                    if (attempts >= MaxRetries)
+                    {
+                        Debug.LogError($"[ApiService] {endpoint} failed after {MaxRetries} attempts: {e.Message}");
+                        return ApiResult<T>.Fail($"Network error: {e.Message}");
+                    }
+                    Debug.LogWarning($"[ApiService] Retry {attempts}/{MaxRetries} for {endpoint}");
+                    await Task.Delay(TimeSpan.FromSeconds(RetryDelay));
+                }
+            }
+            return ApiResult<T>.Fail("Max retries exceeded");
+        }
+
+        private string ParseError(string json)
         {
             try
             {
-                var content = new StringContent(body, Encoding.UTF8, "application/json");
-                await _client.PutAsync(_baseUrl + endpoint, content);
+                var err = JsonConvert.DeserializeObject<ErrorResponse>(json);
+                return err?.Error ?? json;
             }
-            catch (Exception e)
-            {
-                Debug.LogError($"[ApiService] PUT {endpoint} failed: {e.Message}");
-            }
+            catch { return json; }
         }
+    }
+
+    public class ErrorResponse
+    {
+        [JsonProperty("error")] public string Error { get; set; }
     }
 
     // ─── Response Models ──────────────────────────────────────

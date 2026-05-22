@@ -72,16 +72,16 @@ namespace CatRoyale.UI.DeckBuilder
                 Destroy(child.gameObject);
 
             var api = ServiceLocator.Get<ApiService>();
-            var pieces = await api.GetPieces();
+            var result = await api.GetPieces();
 
-            if (pieces == null || pieces.Count == 0)
+            if (!result.Success)
             {
-                Debug.LogWarning("[DeckBuilderView] No pieces received, using placeholders.");
+                Debug.LogWarning($"[DeckBuilderView] {result.Error} — using placeholders.");
                 _collection = GetPlaceholderPieces();
             }
             else
             {
-                _collection = pieces.ConvertAll(p => new PieceCardData
+                _collection = result.Data.ConvertAll(p => new PieceCardData
                 {
                     ID = p.ID,
                     Name = p.Name,
@@ -148,23 +148,19 @@ namespace CatRoyale.UI.DeckBuilder
 
         private async void OnSaveClicked()
         {
-            Debug.Log("[DeckBuilder] Saving deck...");
-
             var api = ServiceLocator.Get<ApiService>();
 
-            // Crée le deck si pas encore créé
             if (string.IsNullOrEmpty(_currentDeckID))
             {
-                var deck = await api.CreateDeck("Mon Deck");
-                if (deck == null)
+                var deckResult = await api.CreateDeck("Mon Deck");
+                if (!deckResult.Success)
                 {
-                    Debug.LogError("[DeckBuilder] Failed to create deck.");
+                    Debug.LogError($"[DeckBuilder] Failed to create deck: {deckResult.Error}");
                     return;
                 }
-                _currentDeckID = deck.ID;
+                _currentDeckID = deckResult.Data.ID;
             }
 
-            // Construit la liste des entrées
             var entries = new List<DeckEntryRequest>();
             for (int y = 0; y < 2; y++)
             {
@@ -183,8 +179,11 @@ namespace CatRoyale.UI.DeckBuilder
                 }
             }
 
-            await api.SaveDeck(_currentDeckID, entries);
-            Debug.Log($"[DeckBuilder] Deck saved with {entries.Count} pieces.");
+            var saveResult = await api.SaveDeck(_currentDeckID, entries);
+            if (saveResult.Success)
+                Debug.Log($"[DeckBuilder] Deck saved with {entries.Count} pieces.");
+            else
+                Debug.LogError($"[DeckBuilder] Save failed: {saveResult.Error}");
         }
 
         private void OnBackClicked()

@@ -84,11 +84,15 @@ namespace CatRoyale.Core
             if (api == null) return;
 
             api.SetAuthToken(firebaseToken);
-            var user = await api.Login(firebaseToken);
+            var result = await api.Login(firebaseToken);
 
-            if (user != null)
+            if (result.Success)
             {
-                Debug.Log($"[AuthService] Backend registered: {user.Username}");
+                Debug.Log($"[AuthService] Backend registered: {result.Data.Username}");
+            }
+            else
+            {
+                Debug.LogWarning($"[AuthService] Backend registration failed: {result.Error}");
             }
         }
 

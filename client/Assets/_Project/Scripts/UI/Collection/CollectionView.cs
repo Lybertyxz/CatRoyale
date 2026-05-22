@@ -38,16 +38,16 @@ namespace CatRoyale.UI.Collection
         private async void LoadPieces()
         {
             var api = ServiceLocator.Get<ApiService>();
-            var pieces = await api.GetPieces();
+            var result = await api.GetPieces();
 
-            if (pieces == null || pieces.Count == 0)
+            if (!result.Success)
             {
-                Debug.LogWarning("[CollectionView] No pieces received, using placeholders.");
+                Debug.LogWarning($"[CollectionView] {result.Error} — using placeholders.");
                 _allPieces = GetPlaceholderPieces();
             }
             else
             {
-                _allPieces = pieces.ConvertAll(p => new PieceCardData
+                _allPieces = result.Data.ConvertAll(p => new PieceCardData
                 {
                     ID = p.ID,
                     Name = p.Name,

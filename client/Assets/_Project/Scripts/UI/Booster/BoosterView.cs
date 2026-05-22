@@ -41,12 +41,18 @@ namespace CatRoyale.UI.Booster
                 Destroy(child.gameObject);
 
             var api = ServiceLocator.Get<ApiService>();
-            var boosters = await api.GetBoosters();
+            var result = await api.GetBoosters();
 
-            if (boosters == null || boosters.Count == 0)
+            List<BoosterData> boosters;
+
+            if (!result.Success)
             {
-                Debug.LogWarning("[BoosterView] No boosters received, using placeholders.");
-                boosters = GetPlaceholderBoosters().ConvertAll(b => new BoosterResponse
+                Debug.LogWarning($"[BoosterView] {result.Error} — using placeholders.");
+                boosters = GetPlaceholderBoosters();
+            }
+            else
+            {
+                boosters = result.Data.ConvertAll(b => new BoosterData
                 {
                     ID = b.ID,
                     Name = b.Name,
@@ -61,38 +67,23 @@ namespace CatRoyale.UI.Booster
             {
                 var card = Instantiate(_boosterCardPrefab, _boosterContainer);
                 var boosterCopy = booster;
-                card.GetComponent<BoosterCardUI>()?.Setup(new BoosterData
-                {
-                    ID = boosterCopy.ID,
-                    Name = boosterCopy.Name,
-                    Description = boosterCopy.Description,
-                    PriceCoins = boosterCopy.PriceCoins,
-                    PriceGems = boosterCopy.PriceGems,
-                    PiecesCount = boosterCopy.PiecesCount
-                }, () => OnOpenBooster(new BoosterData
-                {
-                    ID = boosterCopy.ID,
-                    Name = boosterCopy.Name,
-                    PiecesCount = boosterCopy.PiecesCount
-                }));
+                card.GetComponent<BoosterCardUI>()?.Setup(boosterCopy, () => OnOpenBooster(boosterCopy));
             }
         }
 
         private async void OnOpenBooster(BoosterData booster)
         {
-            Debug.Log($"[BoosterView] Opening booster: {booster.Name}");
-
             var api = ServiceLocator.Get<ApiService>();
             var result = await api.OpenBooster(booster.ID);
 
-            if (result?.Pieces == null || result.Pieces.Count == 0)
+            if (!result.Success)
             {
-                Debug.LogWarning("[BoosterView] No pieces received, using simulation.");
+                Debug.LogWarning($"[BoosterView] {result.Error} — using simulation.");
                 ShowResult(SimulateBoosterOpening(booster));
                 return;
             }
 
-            var pieces = result.Pieces.ConvertAll(p => new PieceCardData
+            var pieces = result.Data.Pieces.ConvertAll(p => new PieceCardData
             {
                 ID = p.ID,
                 Name = p.Name,
