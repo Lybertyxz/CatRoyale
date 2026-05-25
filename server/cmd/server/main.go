@@ -86,6 +86,8 @@ func main() {
 	})
 	go queue.Run(context.Background())
 
+	go ws.DispatchMessages(hub, roomManager, queue)
+	
 	boosterService := postgres.NewBoosterService(pgStore)
 	app := transporthttp.NewRouter(cfg, hub, firebase, roomManager, queue, userService, pgStore, boosterService)
 

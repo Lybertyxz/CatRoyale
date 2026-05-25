@@ -1,10 +1,13 @@
 package http
 
 import (
+	"time"
+
 	"github.com/Lybertyxz/CatRoyale/server/internal/auth"
 	"github.com/Lybertyxz/CatRoyale/server/internal/config"
 	"github.com/Lybertyxz/CatRoyale/server/internal/game"
 	"github.com/Lybertyxz/CatRoyale/server/internal/matchmaking"
+	matchmakingpkg "github.com/Lybertyxz/CatRoyale/server/internal/matchmaking"
 	"github.com/Lybertyxz/CatRoyale/server/internal/store/postgres"
 	"github.com/Lybertyxz/CatRoyale/server/internal/transport/http/handlers"
 	"github.com/Lybertyxz/CatRoyale/server/internal/transport/http/middleware"
@@ -37,6 +40,17 @@ func NewRouter(
 	})
 
 	api := app.Group("/api/v1")
+
+	// TEST ONLY — simule un deuxième joueur dans la queue
+	api.Get("/test/join-queue", func(c *fiber.Ctx) error {
+    player := matchmakingpkg.Player{
+        UserID:   "test_user_2",
+        Username: "TestPlayer2",
+        JoinedAt: time.Now(),
+    }
+    queue.Join(c.Context(), player)
+    return c.JSON(fiber.Map{"status": "joined"})
+})
 
 	// ─── Auth ────────────────────────────────────────────
 	api.Post("/auth/login", authHandler.Login)

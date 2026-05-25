@@ -8,6 +8,7 @@ import (
 
 	"github.com/Lybertyxz/CatRoyale/server/internal/auth"
 	"github.com/Lybertyxz/CatRoyale/server/internal/game"
+	"github.com/Lybertyxz/CatRoyale/server/internal/matchmaking"
 	matchmakingpkg "github.com/Lybertyxz/CatRoyale/server/internal/matchmaking"
 	"github.com/Lybertyxz/CatRoyale/server/pkg/protocol"
 	"github.com/gofiber/contrib/websocket"
@@ -15,7 +16,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func Handler(hub *Hub, firebase *auth.FirebaseManager, roomManager *game.RoomManager, queue *matchmakingpkg.Queue) fiber.Handler {
+func Handler(hub *Hub, firebase *auth.FirebaseManager, roomManager *game.RoomManager, queue *matchmaking.Queue) fiber.Handler {
 	return websocket.New(func(conn *websocket.Conn) {
 		token := conn.Query("token")
 		if token == "" {
@@ -23,33 +24,42 @@ func Handler(hub *Hub, firebase *auth.FirebaseManager, roomManager *game.RoomMan
 			return
 		}
 
-		claims, err := firebase.VerifyToken(context.Background(), token)
-		if err != nil {
-			conn.Close()
-			return
+		var userID, username string
+
+		// BYPASS pour test — à supprimer en production
+		if token == "test_token" {
+			userID = "test_user_" + token
+			username = "TestPlayer"
+		} else {
+			claims, err := firebase.VerifyToken(context.Background(), token)
+			if err != nil {
+				conn.Close()
+				return
+			}
+			userID = claims.UID
+			username = claims.Name
 		}
 
 		client := NewClient(
 			uuid.New().String(),
-			claims.UID,
-			claims.Name,
+			userID,
+			username,
 			conn,
 			hub,
 		)
 
 		hub.Register <- client
-		log.Printf("[WS] Player connected: %s", claims.UID)
+		log.Printf("[WS] Player connected: %s", userID)
 
 		go client.WritePump()
-		go dispatchMessages(hub, roomManager, queue)
 
 		client.ReadPump()
 
-		log.Printf("[WS] Player disconnected: %s", claims.UID)
+		log.Printf("[WS] Player disconnected: %s", userID)
 	})
 }
 
-func dispatchMessages(hub *Hub, roomManager *game.RoomManager, queue *matchmakingpkg.Queue) {
+func DispatchMessages(hub *Hub, roomManager *game.RoomManager, queue *matchmakingpkg.Queue) {
 	for msg := range hub.Incoming {
 		switch msg.Envelope.Type {
 		case protocol.MsgPlayTurn:

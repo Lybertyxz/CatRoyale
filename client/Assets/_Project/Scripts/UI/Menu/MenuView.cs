@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using CatRoyale.Core;
 using CatRoyale.Network;
+using Newtonsoft.Json;
 
 namespace CatRoyale.UI.Menu
 {
@@ -20,6 +21,8 @@ namespace CatRoyale.UI.Menu
         [SerializeField] private TextMeshProUGUI _coinsText;
         [SerializeField] private TextMeshProUGUI _gemsText;
 
+        private NetworkService _network;
+
         private void Awake()
         {
             _playButton.onClick.AddListener(OnPlayClicked);
@@ -28,56 +31,79 @@ namespace CatRoyale.UI.Menu
             _shopButton.onClick.AddListener(OnShopClicked);
         }
 
+        private void Start()
+        {
+            _network = ServiceLocator.Get<NetworkService>();
+            if (_network != null)
+                _network.OnMessageReceived += OnNetworkMessage;
+        }
+
+        private void OnDestroy()
+        {
+            if (_network != null)
+                _network.OnMessageReceived -= OnNetworkMessage;
+        }
+
+        private void OnNetworkMessage(string rawMessage)
+        {
+            var envelope = JsonConvert.DeserializeObject<Envelope>(rawMessage);
+            if (envelope == null) return;
+
+            if (envelope.Type == "game_start")
+            {
+                Debug.Log("[MenuView] Game start received — loading Game scene.");
+                MainThreadDispatcher.Run(() =>
+                {
+                    GameManager.Instance.SetState(GameState.InGame);
+                    ServiceLocator.Get<SceneLoader>()?.LoadScene("Game");
+                });
+            }
+        }
+
         private async void OnPlayClicked()
         {
             Debug.Log("[MenuView] Play clicked");
             GameManager.Instance.SetState(GameState.Matchmaking);
 
-            var network = ServiceLocator.Get<NetworkService>();
-            if (network == null)
+            if (_network == null)
             {
                 Debug.LogError("[MenuView] NetworkService not found.");
                 return;
             }
 
-            // Connecte au WebSocket avec le token Firebase
             var auth = ServiceLocator.Get<AuthService>();
             if (auth == null || !auth.IsLoggedIn)
             {
                 Debug.LogWarning("[MenuView] Not logged in — using test connection.");
-                await network.ConnectAsync("test_token");
+                await _network.ConnectAsync("test_token");
             }
             else
             {
                 var token = await auth.GetFirebaseToken();
-                await network.ConnectAsync(token);
+                await _network.ConnectAsync(token);
             }
 
-            // Envoie join_queue
-            var message = Newtonsoft.Json.JsonConvert.SerializeObject(new
+            var message = JsonConvert.SerializeObject(new
             {
                 type = "join_queue",
                 payload = "{}"
             });
-            await network.SendAsync(message);
+            await _network.SendAsync(message);
             Debug.Log("[MenuView] Joined matchmaking queue.");
         }
 
         private void OnCollectionClicked()
         {
-            Debug.Log("[MenuView] Collection clicked");
             ServiceLocator.Get<UIManager>().ShowView(ViewNames.Collection);
         }
 
         private void OnDeckBuilderClicked()
         {
-            Debug.Log("[MenuView] DeckBuilder clicked");
             ServiceLocator.Get<UIManager>().ShowView(ViewNames.DeckBuilder);
         }
 
         private void OnShopClicked()
         {
-            Debug.Log("[MenuView] Shop clicked");
             ServiceLocator.Get<UIManager>().ShowView(ViewNames.Booster);
         }
 
