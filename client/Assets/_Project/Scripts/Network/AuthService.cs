@@ -96,5 +96,11 @@ namespace CatRoyale.Core
             _currentUser = null;
             Debug.Log("[AuthService] Logged out.");
         }
+
+        public async Task<string> GetFirebaseToken()
+        {
+            if (_currentUser == null) return string.Empty;
+            return await _currentUser.TokenAsync(false);
+        }
     }
 }

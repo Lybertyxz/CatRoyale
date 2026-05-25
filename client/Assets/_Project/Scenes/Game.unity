@@ -1290,9 +1290,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3fa87b2c64567da4bbcb9a24f891c797, type: 3}
   m_Name: 
   m_EditorClassIdentifier: CatRoyale.Gameplay::CatRoyale.Gameplay.BoardView
-  _boardContainer: {fileID: 0}
-  _cellPrefab: {fileID: 0}
-  _piecePrefab: {fileID: 0}
+  _boardContainer: {fileID: 750434989}
+  _cellPrefab: {fileID: 2126655493976517179, guid: c0337d49d9f58974c8253bb3132965b2, type: 3}
+  _piecePrefab: {fileID: 8235804028505837061, guid: fd4cca7f3065a644e98f646096865827, type: 3}
   _boardSize: 8
   _cellSize: 100
 --- !u!1 &1874740230

@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using CatRoyale.Core;
+using CatRoyale.Network;
 
 namespace CatRoyale.UI.Menu
 {
@@ -27,11 +28,39 @@ namespace CatRoyale.UI.Menu
             _shopButton.onClick.AddListener(OnShopClicked);
         }
 
-        private void OnPlayClicked()
+        private async void OnPlayClicked()
         {
             Debug.Log("[MenuView] Play clicked");
             GameManager.Instance.SetState(GameState.Matchmaking);
-            // TODO: NetworkService join queue
+
+            var network = ServiceLocator.Get<NetworkService>();
+            if (network == null)
+            {
+                Debug.LogError("[MenuView] NetworkService not found.");
+                return;
+            }
+
+            // Connecte au WebSocket avec le token Firebase
+            var auth = ServiceLocator.Get<AuthService>();
+            if (auth == null || !auth.IsLoggedIn)
+            {
+                Debug.LogWarning("[MenuView] Not logged in — using test connection.");
+                await network.ConnectAsync("test_token");
+            }
+            else
+            {
+                var token = await auth.GetFirebaseToken();
+                await network.ConnectAsync(token);
+            }
+
+            // Envoie join_queue
+            var message = Newtonsoft.Json.JsonConvert.SerializeObject(new
+            {
+                type = "join_queue",
+                payload = "{}"
+            });
+            await network.SendAsync(message);
+            Debug.Log("[MenuView] Joined matchmaking queue.");
         }
 
         private void OnCollectionClicked()

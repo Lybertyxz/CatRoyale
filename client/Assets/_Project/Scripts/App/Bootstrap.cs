@@ -27,6 +27,7 @@ namespace CatRoyale.App
             SceneLoader.Initialize();
             UIManager.Initialize();
             ApiService.Initialize("http://localhost:8080");
+            NetworkService.Initialize("ws://localhost:8080/api/v1/ws");
 
             await AuthService.Initialize();
 

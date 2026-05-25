@@ -128,7 +128,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1519266000}
-  - component: {fileID: 1519265999}
+  - component: {fileID: 1519266001}
   m_Layer: 0
   m_Name: Bootstrap
   m_TagString: Untagged
@@ -136,19 +136,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1519265999
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1519265998}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ff51da709a7969548ae0069f6096fa78, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CatRoyale.Core.Bootstrap
-  menuSceneName: Menu
 --- !u!4 &1519266000
 Transform:
   m_ObjectHideFlags: 0
@@ -164,6 +151,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1519266001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1519265998}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dedd5c9c3ae4dbd4d9232adc4ed136c5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: CatRoyale.App::CatRoyale.App.Bootstrap
+  menuSceneName: Menu
 --- !u!1 &2040508581
 GameObject:
   m_ObjectHideFlags: 0
