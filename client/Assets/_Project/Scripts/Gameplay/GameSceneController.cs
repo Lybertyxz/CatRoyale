@@ -80,8 +80,8 @@ namespace CatRoyale.Gameplay
 
             switch (envelope.Type)
             {
-                case "turn_result": HandleTurnResult(envelope.Payload); break;
-                case "game_over": HandleGameOver(envelope.Payload); break;
+                case "turn_result": HandleTurnResult(envelope.Payload?.ToString() ?? "{}"); break;
+                case "game_over": HandleGameOver(envelope.Payload?.ToString() ?? "{}"); break;
             }
         }
 

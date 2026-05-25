@@ -29,7 +29,7 @@ namespace CatRoyale.Network
 
                 if (_handlers.TryGetValue(envelope.Type, out var handler))
                 {
-                    handler.Invoke(envelope.Payload);
+                    handler.Invoke(envelope.Payload?.ToString() ?? "{}");
                 }
                 else
                 {
@@ -50,6 +50,6 @@ namespace CatRoyale.Network
         public string Type { get; set; }
 
         [JsonProperty("payload")]
-        public string Payload { get; set; }
+        public Newtonsoft.Json.Linq.JToken Payload { get; set; }
     }
 }
