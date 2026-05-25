@@ -66,19 +66,21 @@ func (c *Client) WritePump() {
 
 // SendEnvelope envoie un message structuré au client
 func (c *Client) SendEnvelope(msgType protocol.MessageType, payload interface{}) error {
-	data, err := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	envelope, err := json.Marshal(protocol.Envelope{
+	envelope := protocol.Envelope{
 		Type:    msgType,
-		Payload: data,
-	})
+		Payload: json.RawMessage(payloadBytes),
+	}
+
+	envelopeBytes, err := json.Marshal(envelope)
 	if err != nil {
 		return err
 	}
 
-	c.Send <- envelope
+	c.Send <- envelopeBytes
 	return nil
 }
