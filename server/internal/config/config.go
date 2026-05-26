@@ -11,6 +11,7 @@ type Config struct {
 	RedisURL               string
 	JWTSecret              string
 	FirebaseServiceAccount string
+	DevMode                bool
 }
 
 func Load() (*Config, error) {
@@ -26,5 +27,6 @@ func Load() (*Config, error) {
 		RedisURL:               viper.GetString("REDIS_URL"),
 		JWTSecret:              viper.GetString("JWT_SECRET"),
 		FirebaseServiceAccount: viper.GetString("FIREBASE_SERVICE_ACCOUNT"),
+		DevMode: viper.GetBool("DEV_MODE"),
 	}, nil
 }

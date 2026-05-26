@@ -17,7 +17,6 @@ namespace CatRoyale.UI.DeckBuilder
         [SerializeField] private Button _createDeckButton;
 
         [Header("Deck Editor Panel")]
-        [SerializeField] private GameObject _editorPanel;
         [SerializeField] private TextMeshProUGUI _deckNameText;
         [SerializeField] private TextMeshProUGUI _slotsUsedText;
         [SerializeField] private Transform _boardContainer;
@@ -25,7 +24,6 @@ namespace CatRoyale.UI.DeckBuilder
         [SerializeField] private Transform _collectionContainer;
         [SerializeField] private GameObject _pieceCardPrefab;
         [SerializeField] private Button _saveButton;
-        [SerializeField] private Button _closeEditorButton;
 
         [Header("Navigation")]
         [SerializeField] private Button _backButton;
@@ -43,13 +41,13 @@ namespace CatRoyale.UI.DeckBuilder
             _createDeckButton?.onClick.AddListener(OnCreateDeckClicked);
             _saveButton?.onClick.AddListener(OnSaveClicked);
             _backButton?.onClick.AddListener(OnBackClicked);
-            _closeEditorButton?.onClick.AddListener(CloseEditor);
         }
 
         private void OnEnable()
         {
+            InitBoard();
+            LoadCollection();
             LoadDecks();
-            CloseEditor();
         }
 
         // ─── Deck List ────────────────────────────────────────
@@ -58,6 +56,7 @@ namespace CatRoyale.UI.DeckBuilder
             var api = ServiceLocator.Get<ApiService>();
             var result = await api.GetDecks();
 
+            Debug.Log($"[DeckBuilder] LoadDecks success: {result.Success} count: {result.Data?.Count}");
             foreach (Transform child in _deckListContainer)
                 Destroy(child.gameObject);
 
@@ -96,8 +95,16 @@ namespace CatRoyale.UI.DeckBuilder
 
         private async void OnDeleteDeck(DeckResponse deck)
         {
-            // TODO: appel DELETE /api/v1/decks/:id
-            Debug.Log($"[DeckBuilder] Delete deck: {deck.ID}");
+            var api = ServiceLocator.Get<ApiService>();
+            var result = await api.DeleteDeck(deck.ID);
+
+            if (!result.Success)
+            {
+                Debug.LogError($"[DeckBuilder] Delete failed: {result.Error}");
+                return;
+            }
+
+            Debug.Log($"[DeckBuilder] Deleted deck: {deck.ID}");
             LoadDecks();
         }
 
@@ -106,17 +113,9 @@ namespace CatRoyale.UI.DeckBuilder
         {
             _currentDeckID = deck.ID;
             if (_deckNameText) _deckNameText.text = deck.Name;
-            if (_editorPanel) _editorPanel.SetActive(true);
-
-            InitBoard();
-            LoadCollection();
-        }
-
-        private void CloseEditor()
-        {
-            if (_editorPanel) _editorPanel.SetActive(false);
-            _currentDeckID = null;
             _usedSlots = 0;
+            InitBoard();
+            LoadDeckEntries(deck.ID);
         }
 
         private void InitBoard()
@@ -132,9 +131,26 @@ namespace CatRoyale.UI.DeckBuilder
                     var slot = slotObj.GetComponent<DeckSlotUI>();
                     int capturedX = x, capturedY = y;
                     slot.Setup(null, (s) => OnBoardSlotClicked(s, capturedX, capturedY));
+                    slot.OnPieceDropped = (s, piece) => OnPieceDroppedOnSlot(s, piece);
                     _boardSlots[y, x] = slot;
                 }
             }
+        }
+
+        private void OnPieceDroppedOnSlot(DeckSlotUI slot, PieceCardData piece)
+        {
+            if (!slot.IsEmpty)
+                _usedSlots -= slot.Piece.SlotCost;
+
+            if (_usedSlots + piece.SlotCost > MaxSlots)
+            {
+                Debug.LogWarning("[DeckBuilder] Not enough slots.");
+                return;
+            }
+
+            slot.Setup(piece, (s) => OnBoardSlotClicked(s, 0, 0));
+            _usedSlots += piece.SlotCost;
+            UpdateSlotsUI();
         }
 
         private async void LoadCollection()
@@ -196,6 +212,29 @@ namespace CatRoyale.UI.DeckBuilder
                 return;
             }
             _selectedSlot = slot;
+        }
+
+        private async void LoadDeckEntries(string deckID)
+        {
+            var api = ServiceLocator.Get<ApiService>();
+            var result = await api.GetDeckDetail(deckID);
+
+            if (!result.Success || result.Data?.Entries == null) return;
+
+            foreach (var entry in result.Data.Entries)
+            {
+                // Trouve la pièce dans la collection
+                var piece = _collection.Find(p => p.ID == entry.TemplateID);
+                if (piece == null) continue;
+
+                var slot = _boardSlots[entry.StartY, entry.StartX];
+                if (slot == null) continue;
+
+                slot.Setup(piece, (s) => OnBoardSlotClicked(s, entry.StartX, entry.StartY));
+                _usedSlots += piece.SlotCost;
+            }
+
+            UpdateSlotsUI();
         }
 
         private void UpdateSlotsUI()

@@ -34,26 +34,39 @@ func NewRouter(
 	userHandler := handlers.NewUserHandler(pgStore)
 	deckHandler := handlers.NewDeckHandler(pgStore)
 
-	// Health
+	// ─── Health ──────────────────────────────────────────
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
 	api := app.Group("/api/v1")
 
-	// TEST ONLY — simule un deuxième joueur dans la queue
-	api.Get("/test/join-queue", func(c *fiber.Ctx) error {
-    player := matchmakingpkg.Player{
-        UserID:   "test_user_2",
-        Username: "TestPlayer2",
-        JoinedAt: time.Now(),
-    }
-    queue.Join(c.Context(), player)
-    return c.JSON(fiber.Map{"status": "joined"})
-})
+	// ─── Dev Mode ────────────────────────────────────────
+	if cfg.DevMode {
+		// Injecte un user fictif sur toutes les routes
+		api.Use(func(c *fiber.Ctx) error {
+			c.Locals("userID", "test_user_test_token")
+			c.Locals("username", "TestPlayer")
+			return c.Next()
+		})
 
-	// ─── Auth ────────────────────────────────────────────
+		// Routes de test uniquement
+		api.Get("/test/join-queue", func(c *fiber.Ctx) error {
+			player := matchmakingpkg.Player{
+				UserID:   "test_user_2",
+				Username: "TestPlayer2",
+				JoinedAt: time.Now(),
+			}
+			queue.Join(c.Context(), player)
+			return c.JSON(fiber.Map{"status": "joined"})
+		})
+	}
+
+	// ─── Auth (public) ───────────────────────────────────
 	api.Post("/auth/login", authHandler.Login)
+
+	// ─── Boosters (public) ───────────────────────────────
+	api.Get("/boosters", boosterHandler.ListBoosters)
 
 	// ─── WebSocket ───────────────────────────────────────
 	api.Use("/ws", func(c *fiber.Ctx) error {
@@ -65,7 +78,12 @@ func NewRouter(
 	api.Get("/ws", ws.Handler(hub, firebase, roomManager, queue))
 
 	// ─── Protected ───────────────────────────────────────
-	protected := api.Group("", middleware.Protected(firebase))
+	var protected fiber.Router
+	if cfg.DevMode {
+		protected = api.Group("")
+	} else {
+		protected = api.Group("", middleware.Protected(firebase))
+	}
 
 	// User
 	protected.Get("/me", authHandler.Me)
@@ -73,7 +91,6 @@ func NewRouter(
 	protected.Get("/pieces", userHandler.GetPieces)
 
 	// Boosters
-	api.Get("/boosters", boosterHandler.ListBoosters)
 	protected.Post("/boosters/:id/open", boosterHandler.OpenBooster)
 
 	// Decks

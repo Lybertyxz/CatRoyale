@@ -70,6 +70,21 @@ namespace CatRoyale.Network
                 : ApiResult<bool>.Fail(result.Error, result.StatusCode);
         }
 
+        public async Task<ApiResult<bool>> DeleteDeck(string deckID)
+        {
+            return await ExecuteWithRetry(async () =>
+            {
+                var response = await _client.DeleteAsync(_baseUrl + $"/api/v1/decks/{deckID}");
+                if (response.IsSuccessStatusCode)
+                    return ApiResult<bool>.Ok(true);
+                var error = await response.Content.ReadAsStringAsync();
+                return ApiResult<bool>.Fail(ParseError(error), (int)response.StatusCode);
+            }, $"/api/v1/decks/{deckID}");
+        }
+
+        public async Task<ApiResult<DeckDetailResponse>> GetDeckDetail(string deckID)
+            => await Get<DeckDetailResponse>($"/api/v1/decks/{deckID}");
+
         // ─── HTTP Helpers ─────────────────────────────────────
         private async Task<ApiResult<T>> Get<T>(string endpoint)
         {
@@ -218,6 +233,21 @@ namespace CatRoyale.Network
 
     public class DeckEntryRequest
     {
+        [JsonProperty("template_id")] public string TemplateID { get; set; }
+        [JsonProperty("start_x")] public int StartX { get; set; }
+        [JsonProperty("start_y")] public int StartY { get; set; }
+    }
+
+    public class DeckDetailResponse
+    {
+        [JsonProperty("deck")] public DeckResponse Deck { get; set; }
+        [JsonProperty("entries")] public List<DeckEntryResponse> Entries { get; set; }
+    }
+
+    public class DeckEntryResponse
+    {
+        [JsonProperty("id")] public string ID { get; set; }
+        [JsonProperty("deck_id")] public string DeckID { get; set; }
         [JsonProperty("template_id")] public string TemplateID { get; set; }
         [JsonProperty("start_x")] public int StartX { get; set; }
         [JsonProperty("start_y")] public int StartY { get; set; }
