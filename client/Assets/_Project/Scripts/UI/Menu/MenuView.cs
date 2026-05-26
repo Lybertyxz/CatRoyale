@@ -4,6 +4,7 @@ using TMPro;
 using CatRoyale.Core;
 using CatRoyale.Network;
 using Newtonsoft.Json;
+using System.Collections.Generic;
 
 namespace CatRoyale.UI.Menu
 {
@@ -21,6 +22,10 @@ namespace CatRoyale.UI.Menu
         [SerializeField] private TextMeshProUGUI _coinsText;
         [SerializeField] private TextMeshProUGUI _gemsText;
 
+        [Header("Battle")]
+        [SerializeField] private TMP_Dropdown _deckDropdown;
+        private List<DeckResponse> _decks = new();
+
         private NetworkService _network;
 
         private void Awake()
@@ -36,6 +41,7 @@ namespace CatRoyale.UI.Menu
             _network = ServiceLocator.Get<NetworkService>();
             if (_network != null)
                 _network.OnMessageReceived += OnNetworkMessage;
+            LoadDecks();
         }
 
         private void OnDestroy()
@@ -83,13 +89,19 @@ namespace CatRoyale.UI.Menu
                 await _network.ConnectAsync(token);
             }
 
+            // Récupère le deck sélectionné
+            string deckID = "";
+            if (_decks.Count > 0 && _deckDropdown != null)
+                deckID = _decks[_deckDropdown.value].ID;
+
             var message = JsonConvert.SerializeObject(new
             {
                 type = "join_queue",
-                payload = "{}"
+                payload = JsonConvert.SerializeObject(new { deck_id = deckID })
             });
+
             await _network.SendAsync(message);
-            Debug.Log("[MenuView] Joined matchmaking queue.");
+            Debug.Log($"[MenuView] Joined queue with deck: {deckID}");
         }
 
         private void OnCollectionClicked()
@@ -113,6 +125,20 @@ namespace CatRoyale.UI.Menu
             if (_levelText) _levelText.text = $"Lvl {level}";
             if (_coinsText) _coinsText.text = coins.ToString();
             if (_gemsText) _gemsText.text = gems.ToString();
+        }
+
+        private async void LoadDecks()
+        {
+            var api = ServiceLocator.Get<ApiService>();
+            var result = await api.GetDecks();
+
+            if (!result.Success || result.Data == null) return;
+
+            _decks = result.Data;
+            _deckDropdown?.ClearOptions();
+
+            var options = _decks.ConvertAll(d => new TMP_Dropdown.OptionData(d.Name));
+            _deckDropdown?.AddOptions(options);
         }
     }
 }
