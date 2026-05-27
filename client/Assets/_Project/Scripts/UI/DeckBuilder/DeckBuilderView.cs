@@ -159,7 +159,7 @@ namespace CatRoyale.UI.DeckBuilder
                 Destroy(child.gameObject);
 
             var repo = ServiceLocator.Get<PieceRepository>();
-            _collection = repo.GetAll().ConvertAll(m => new PieceCardData
+            _collection = repo.GetOwned().ConvertAll(m => new PieceCardData
             {
                 ID = m.ID,
                 Name = m.Name,
@@ -177,6 +177,10 @@ namespace CatRoyale.UI.DeckBuilder
             {
                 var card = Instantiate(_pieceCardPrefab, _collectionContainer);
                 card.GetComponent<PieceCardUI>()?.Setup(piece, OnCollectionCardClicked);
+
+                var ui = card.GetComponent<PieceCardUI>();
+                Debug.Log($"[DeckBuilder] PieceCardUI found: {ui != null} | piece: {piece.Name} | icon: {piece.Icon}");
+                ui?.Setup(piece, OnCollectionCardClicked);
             }
         }
 

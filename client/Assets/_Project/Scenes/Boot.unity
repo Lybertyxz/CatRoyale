@@ -164,6 +164,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: CatRoyale.App::CatRoyale.App.Bootstrap
   menuSceneName: Menu
+  _pieceVisualRegistry: {fileID: 11400000, guid: c2f80ae6f61a1e84fa95e29ab870a325, type: 2}
 --- !u!1 &2040508581
 GameObject:
   m_ObjectHideFlags: 0

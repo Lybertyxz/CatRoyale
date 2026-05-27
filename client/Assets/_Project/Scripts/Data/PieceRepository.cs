@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
-using CatRoyale.Gameplay;
 using CatRoyale.Network;
 
 namespace CatRoyale.Data
@@ -28,7 +27,7 @@ namespace CatRoyale.Data
         // ─── Public API ───────────────────────────────────────
 
         public List<PieceModel> GetAll() => _pieces ?? new();
-
+        public List<PieceModel> GetOwned() => _pieces?.FindAll(p => p.IsOwned) ?? new();
         public PieceModel Get(string id) => _pieces?.Find(p => p.ID == id);
 
         public async Awaitable InitAsync()
@@ -39,6 +38,7 @@ namespace CatRoyale.Data
             {
                 Debug.Log("[PieceRepository] Using disk cache.");
                 _pieces = Merge(cache.Pieces);
+                await ApplyOwnership();
                 return;
             }
 
@@ -48,14 +48,39 @@ namespace CatRoyale.Data
             if (!result.Success)
             {
                 Debug.LogWarning($"[PieceRepository] Fetch failed: {result.Error}");
-                // Utilise le cache expiré si dispo plutôt que rien
                 if (cache != null) _pieces = Merge(cache.Pieces);
                 return;
             }
 
             SaveCache(result.Data);
             _pieces = Merge(result.Data);
+            await ApplyOwnership();
             Debug.Log($"[PieceRepository] {_pieces.Count} pieces loaded.");
+        }
+
+        // ─── Ownership ────────────────────────────────────────
+
+        private async Awaitable ApplyOwnership()
+        {
+            var result = await _api.GetUserPieces();
+
+            if (!result.Success)
+            {
+                Debug.LogWarning($"[PieceRepository] GetUserPieces failed: {result.Error}");
+                return;
+            }
+
+            // Indexe les template_ids possédés
+            var ownedIDs = new HashSet<string>();
+            foreach (var up in result.Data)
+                ownedIDs.Add(up.TemplateID);
+
+            // Met à jour IsOwned sur les modèles
+            foreach (var piece in _pieces)
+                piece.IsOwned = ownedIDs.Contains(piece.ID);
+
+            var ownedCount = ownedIDs.Count;
+            Debug.Log($"[PieceRepository] {ownedCount}/{_pieces.Count} pieces owned.");
         }
 
         // ─── Merge stats + visuels ────────────────────────────
@@ -80,7 +105,7 @@ namespace CatRoyale.Data
                     CanJump = dto.CanJump,
                     MovementType = dto.MovementType,
                     Icon = _visuals.GetIcon(dto.ID),
-                    IsOwned = false // mis à jour par UserRepository
+                    IsOwned = false
                 });
             }
             return models;

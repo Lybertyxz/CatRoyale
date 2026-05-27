@@ -32,3 +32,12 @@ func Protected(firebaseManager *auth.FirebaseManager) fiber.Handler {
 		return c.Next()
 	}
 }
+
+// InjectDevUser injecte un utilisateur fictif pour le dev mode
+func InjectDevUser(r fiber.Router) {
+	r.Use(func(c *fiber.Ctx) error {
+		c.Locals("userID", "test_user_test_token")
+		c.Locals("username", "TestPlayer")
+		return c.Next()
+	})
+}

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -52,6 +51,9 @@ namespace CatRoyale.Network
         // ─── Pieces ───────────────────────────────────────────
         public async Task<ApiResult<List<PieceResponse>>> GetPieces()
             => await Get<List<PieceResponse>>("/api/v1/pieces");
+
+        public async Task<ApiResult<List<UserPieceResponse>>> GetUserPieces()
+            => await Get<List<UserPieceResponse>>("/api/v1/user/pieces");
 
         // ─── Decks ────────────────────────────────────────────
         public async Task<ApiResult<List<DeckResponse>>> GetDecks()
@@ -221,9 +223,21 @@ namespace CatRoyale.Network
         [JsonProperty("attack")] public int Attack { get; set; }
         [JsonProperty("armor")] public int Armor { get; set; }
         [JsonProperty("attack_range")] public int AttackRange { get; set; }
-        [JsonProperty("move_range")] public int MoveRange { get; set; }       // ← ajout
-        [JsonProperty("can_jump")] public bool CanJump { get; set; }          // ← ajout
-        [JsonProperty("movement_type")] public string MovementType { get; set; } // ← ajout
+        [JsonProperty("move_range")] public int MoveRange { get; set; }
+        [JsonProperty("can_jump")] public bool CanJump { get; set; }
+        [JsonProperty("movement_type")] public string MovementType { get; set; }
+    }
+
+    // Pièces possédées par l'utilisateur (join user_pieces + piece_templates)
+    public class UserPieceResponse
+    {
+        [JsonProperty("id")] public string ID { get; set; }           // user_piece id
+        [JsonProperty("user_id")] public string UserID { get; set; }
+        [JsonProperty("template_id")] public string TemplateID { get; set; }
+        [JsonProperty("level")] public int Level { get; set; }
+        [JsonProperty("name")] public string Name { get; set; }
+        [JsonProperty("role")] public string Role { get; set; }
+        [JsonProperty("rarity")] public string Rarity { get; set; }
     }
 
     public class DeckResponse

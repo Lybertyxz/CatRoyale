@@ -50,6 +50,8 @@ namespace CatRoyale.UI.Collection
             _data = data;
             _onClickCallback = onClick;
 
+            Debug.Log($"[PieceCardUI] {data.Name} icon: {data.Icon} | _characterIcon: {_characterIcon}");
+
             var rarityColor = GetRarityColor(data.Rarity);
             if (_background) _background.color = new Color(rarityColor.r * 0.3f, rarityColor.g * 0.3f, rarityColor.b * 0.3f, 1f);
             if (_rarityBorder) _rarityBorder.color = rarityColor;
