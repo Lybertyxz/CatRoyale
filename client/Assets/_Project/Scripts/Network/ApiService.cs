@@ -221,6 +221,9 @@ namespace CatRoyale.Network
         [JsonProperty("attack")] public int Attack { get; set; }
         [JsonProperty("armor")] public int Armor { get; set; }
         [JsonProperty("attack_range")] public int AttackRange { get; set; }
+        [JsonProperty("move_range")] public int MoveRange { get; set; }       // ← ajout
+        [JsonProperty("can_jump")] public bool CanJump { get; set; }          // ← ajout
+        [JsonProperty("movement_type")] public string MovementType { get; set; } // ← ajout
     }
 
     public class DeckResponse

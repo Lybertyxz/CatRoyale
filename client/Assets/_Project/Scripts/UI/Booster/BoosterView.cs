@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using CatRoyale.Core;
 using CatRoyale.UI.Collection;
 using CatRoyale.Network;
+using CatRoyale.Data;
 
 namespace CatRoyale.UI.Booster
 {
@@ -43,25 +43,21 @@ namespace CatRoyale.UI.Booster
             var api = ServiceLocator.Get<ApiService>();
             var result = await api.GetBoosters();
 
-            List<BoosterData> boosters;
-
             if (!result.Success)
             {
-                Debug.LogWarning($"[BoosterView] {result.Error} — using placeholders.");
-                boosters = GetPlaceholderBoosters();
+                Debug.LogWarning($"[BoosterView] {result.Error}");
+                return;
             }
-            else
+
+            var boosters = result.Data.ConvertAll(b => new BoosterData
             {
-                boosters = result.Data.ConvertAll(b => new BoosterData
-                {
-                    ID = b.ID,
-                    Name = b.Name,
-                    Description = b.Description,
-                    PriceCoins = b.PriceCoins,
-                    PriceGems = b.PriceGems,
-                    PiecesCount = b.PiecesCount
-                });
-            }
+                ID = b.ID,
+                Name = b.Name,
+                Description = b.Description,
+                PriceCoins = b.PriceCoins,
+                PriceGems = b.PriceGems,
+                PiecesCount = b.PiecesCount
+            });
 
             foreach (var booster in boosters)
             {
@@ -74,26 +70,31 @@ namespace CatRoyale.UI.Booster
         private async void OnOpenBooster(BoosterData booster)
         {
             var api = ServiceLocator.Get<ApiService>();
+            var repo = ServiceLocator.Get<PieceRepository>();
             var result = await api.OpenBooster(booster.ID);
 
             if (!result.Success)
             {
-                Debug.LogWarning($"[BoosterView] {result.Error} — using simulation.");
-                ShowResult(SimulateBoosterOpening(booster));
+                Debug.LogWarning($"[BoosterView] {result.Error}");
                 return;
             }
 
-            var pieces = result.Data.Pieces.ConvertAll(p => new PieceCardData
+            var pieces = result.Data.Pieces.ConvertAll(p =>
             {
-                ID = p.ID,
-                Name = p.Name,
-                Role = p.Role,
-                Rarity = p.Rarity,
-                SlotCost = p.SlotCost,
-                MaxHP = p.MaxHP,
-                Attack = p.Attack,
-                Armor = p.Armor,
-                IsOwned = true
+                var model = repo.Get(p.ID);
+                return new PieceCardData
+                {
+                    ID = p.ID,
+                    Name = p.Name,
+                    Role = p.Role,
+                    Rarity = p.Rarity,
+                    SlotCost = p.SlotCost,
+                    MaxHP = p.MaxHP,
+                    Attack = p.Attack,
+                    Armor = p.Armor,
+                    IsOwned = true,
+                    Icon = model?.Icon
+                };
             });
 
             ShowResult(pieces);
@@ -121,36 +122,6 @@ namespace CatRoyale.UI.Booster
         private void OnBackClicked()
         {
             ServiceLocator.Get<UIManager>().ShowView(ViewNames.Menu);
-        }
-
-        private List<BoosterData> GetPlaceholderBoosters()
-        {
-            return new List<BoosterData>
-            {
-                new() { ID = "booster_starter",  Name = "Starter Pack",       Description = "Parfait pour débuter",             PriceCoins = 0,   PriceGems = 0,   PiecesCount = 3 },
-                new() { ID = "booster_standard", Name = "Booster Standard",   Description = "3 pièces aléatoires",              PriceCoins = 100, PriceGems = 0,   PiecesCount = 3 },
-                new() { ID = "booster_premium",  Name = "Booster Premium",    Description = "5 pièces, meilleures chances",     PriceCoins = 0,   PriceGems = 50,  PiecesCount = 5 },
-                new() { ID = "booster_legendary",Name = "Booster Légendaire", Description = "Garanti Épique ou Légendaire",     PriceCoins = 0,   PriceGems = 150, PiecesCount = 5 },
-            };
-        }
-
-        private List<PieceCardData> SimulateBoosterOpening(BoosterData booster)
-        {
-            var allPieces = new List<PieceCardData>
-            {
-                new() { ID = "biscuit_001",  Name = "Biscuit",  Role = "pawn",   Rarity = "common",    SlotCost = 1, IsOwned = true },
-                new() { ID = "granite_001",  Name = "Granite",  Role = "rook",   Rarity = "rare",      SlotCost = 2, IsOwned = true },
-                new() { ID = "whisker_001",  Name = "Whisker",  Role = "knight", Rarity = "rare",      SlotCost = 2, IsOwned = true },
-                new() { ID = "luna_001",     Name = "Luna",     Role = "bishop", Rarity = "epic",      SlotCost = 3, IsOwned = true },
-                new() { ID = "tempete_001",  Name = "Tempête",  Role = "queen",  Rarity = "epic",      SlotCost = 4, IsOwned = true },
-                new() { ID = "pharaon_001",  Name = "Pharaon",  Role = "king",   Rarity = "legendary", SlotCost = 5, IsOwned = true },
-            };
-
-            var result = new List<PieceCardData>();
-            for (int i = 0; i < booster.PiecesCount; i++)
-                result.Add(allPieces[Random.Range(0, allPieces.Count)]);
-
-            return result;
         }
     }
 }

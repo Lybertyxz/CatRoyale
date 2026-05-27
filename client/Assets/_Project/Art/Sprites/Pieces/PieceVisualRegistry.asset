@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e34cc17bedd2ea744aba1486e3c602b2, type: 3}
+  m_Name: PieceVisualRegistry
+  m_EditorClassIdentifier: CatRoyale.Data::CatRoyale.Data.PieceVisualRegistry
+  Visuals:
+  - {fileID: 11400000, guid: 2bfc7f1180fc1e243afa14501025b1a1, type: 2}
+  - {fileID: 11400000, guid: cb5970d1dd7f0f04d82331be86d0649e, type: 2}
+  - {fileID: 11400000, guid: 1e32531bb51665e47ad2fd415d7f689f, type: 2}
+  - {fileID: 11400000, guid: d128df4184d8acc4a8be040299915591, type: 2}
+  - {fileID: 11400000, guid: 419ebddf922c7564e85b446f5dc3777c, type: 2}
+  - {fileID: 11400000, guid: a6be0d5d5cc57744e8afcb4a12c80f37, type: 2}

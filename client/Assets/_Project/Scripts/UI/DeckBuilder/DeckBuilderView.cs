@@ -5,7 +5,7 @@ using TMPro;
 using CatRoyale.Core;
 using CatRoyale.Network;
 using CatRoyale.UI.Collection;
-
+using CatRoyale.Data;
 
 namespace CatRoyale.UI.DeckBuilder
 {
@@ -153,28 +153,25 @@ namespace CatRoyale.UI.DeckBuilder
             UpdateSlotsUI();
         }
 
-        private async void LoadCollection()
+        private void LoadCollection()
         {
             foreach (Transform child in _collectionContainer)
                 Destroy(child.gameObject);
 
-            var api = ServiceLocator.Get<ApiService>();
-            var result = await api.GetPieces();
-
-            _collection = !result.Success || result.Data == null
-                ? GetPlaceholderPieces()
-                : result.Data.ConvertAll(p => new PieceCardData
-                {
-                    ID = p.ID,
-                    Name = p.Name,
-                    Role = p.Role,
-                    Rarity = p.Rarity,
-                    SlotCost = p.SlotCost,
-                    MaxHP = p.MaxHP,
-                    Attack = p.Attack,
-                    Armor = p.Armor,
-                    IsOwned = true
-                });
+            var repo = ServiceLocator.Get<PieceRepository>();
+            _collection = repo.GetAll().ConvertAll(m => new PieceCardData
+            {
+                ID = m.ID,
+                Name = m.Name,
+                Role = m.Role,
+                Rarity = m.Rarity,
+                SlotCost = m.SlotCost,
+                MaxHP = m.MaxHP,
+                Attack = m.Attack,
+                Armor = m.Armor,
+                IsOwned = m.IsOwned,
+                Icon = m.Icon
+            });
 
             foreach (var piece in _collection)
             {
@@ -223,7 +220,6 @@ namespace CatRoyale.UI.DeckBuilder
 
             foreach (var entry in result.Data.Entries)
             {
-                // Trouve la pièce dans la collection
                 var piece = _collection.Find(p => p.ID == entry.TemplateID);
                 if (piece == null) continue;
 
@@ -272,15 +268,5 @@ namespace CatRoyale.UI.DeckBuilder
         {
             ServiceLocator.Get<UIManager>().ShowView(ViewNames.Menu);
         }
-
-        private List<PieceCardData> GetPlaceholderPieces() => new()
-        {
-            new() { ID = "biscuit_001",  Name = "Biscuit",  Role = "pawn",   Rarity = "common",    SlotCost = 1 },
-            new() { ID = "granite_001",  Name = "Granite",  Role = "rook",   Rarity = "rare",      SlotCost = 2 },
-            new() { ID = "whisker_001",  Name = "Whisker",  Role = "knight", Rarity = "rare",      SlotCost = 2 },
-            new() { ID = "luna_001",     Name = "Luna",     Role = "bishop", Rarity = "epic",      SlotCost = 3 },
-            new() { ID = "tempete_001",  Name = "Tempête",  Role = "queen",  Rarity = "epic",      SlotCost = 4 },
-            new() { ID = "pharaon_001",  Name = "Pharaon",  Role = "king",   Rarity = "legendary", SlotCost = 5 },
-        };
     }
 }

@@ -3,8 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using CatRoyale.Core;
-using CatRoyale.Network;
-using Newtonsoft.Json;
+using CatRoyale.Data;
 
 namespace CatRoyale.UI.Collection
 {
@@ -35,32 +34,22 @@ namespace CatRoyale.UI.Collection
             LoadPieces();
         }
 
-        private async void LoadPieces()
+        private void LoadPieces()
         {
-            var api = ServiceLocator.Get<ApiService>();
-            var result = await api.GetPieces();
-
-            if (!result.Success)
+            var repo = ServiceLocator.Get<PieceRepository>();
+            _allPieces = repo.GetAll().ConvertAll(m => new PieceCardData
             {
-                Debug.LogWarning($"[CollectionView] {result.Error} — using placeholders.");
-                _allPieces = GetPlaceholderPieces();
-            }
-            else
-            {
-                _allPieces = result.Data.ConvertAll(p => new PieceCardData
-                {
-                    ID = p.ID,
-                    Name = p.Name,
-                    Role = p.Role,
-                    Rarity = p.Rarity,
-                    SlotCost = p.SlotCost,
-                    MaxHP = p.MaxHP,
-                    Attack = p.Attack,
-                    Armor = p.Armor,
-                    IsOwned = true
-                });
-            }
-
+                ID = m.ID,
+                Name = m.Name,
+                Role = m.Role,
+                Rarity = m.Rarity,
+                SlotCost = m.SlotCost,
+                MaxHP = m.MaxHP,
+                Attack = m.Attack,
+                Armor = m.Armor,
+                IsOwned = m.IsOwned,
+                Icon = m.Icon
+            });
             DisplayPieces(_allPieces);
         }
 
@@ -113,19 +102,6 @@ namespace CatRoyale.UI.Collection
         private void OnBackClicked()
         {
             ServiceLocator.Get<UIManager>().ShowView(ViewNames.Menu);
-        }
-
-        private List<PieceCardData> GetPlaceholderPieces()
-        {
-            return new List<PieceCardData>
-            {
-                new() { ID = "biscuit_001", Name = "Biscuit", Role = "Pawn", Rarity = "common", MaxHP = 80, Attack = 15, Armor = 5, SlotCost = 1 },
-                new() { ID = "granite_001", Name = "Granite", Role = "Rook", Rarity = "rare", MaxHP = 160, Attack = 20, Armor = 20, SlotCost = 2 },
-                new() { ID = "whisker_001", Name = "Whisker", Role = "Knight", Rarity = "rare", MaxHP = 100, Attack = 30, Armor = 5, SlotCost = 2 },
-                new() { ID = "luna_001", Name = "Luna", Role = "Bishop", Rarity = "epic", MaxHP = 90, Attack = 35, Armor = 0, SlotCost = 3 },
-                new() { ID = "tempete_001", Name = "Tempête", Role = "Queen", Rarity = "epic", MaxHP = 120, Attack = 40, Armor = 10, SlotCost = 4 },
-                new() { ID = "pharaon_001", Name = "Pharaon", Role = "King", Rarity = "legendary", MaxHP = 220, Attack = 20, Armor = 25, SlotCost = 5 },
-            };
         }
     }
 }

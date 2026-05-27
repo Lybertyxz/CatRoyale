@@ -2,12 +2,15 @@ using UnityEngine;
 using CatRoyale.Core;
 using CatRoyale.UI;
 using CatRoyale.Network;
+using CatRoyale.Gameplay;
+using CatRoyale.Data;
 
 namespace CatRoyale.App
 {
     public class Bootstrap : MonoBehaviour
     {
         [SerializeField] private string menuSceneName = "Menu";
+        [SerializeField] private PieceVisualRegistry _pieceVisualRegistry;
 
         private void Awake()
         {
@@ -31,6 +34,10 @@ namespace CatRoyale.App
             MainThreadDispatcher.Initialize();
 
             await AuthService.Initialize();
+
+            var pieceRepo = new PieceRepository(ServiceLocator.Get<ApiService>(), _pieceVisualRegistry);
+            await pieceRepo.InitAsync();
+            ServiceLocator.Register(pieceRepo);
 
             GameManager.Instance.SetState(GameState.Boot);
 

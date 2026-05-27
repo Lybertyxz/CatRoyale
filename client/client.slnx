@@ -4,5 +4,6 @@
   <Project Path="CatRoyale.UI.csproj" />
   <Project Path="CatRoyale.Core.csproj" />
   <Project Path="CatRoyale.Network.csproj" />
+  <Project Path="CatRoyale.Data.csproj" />
   <Project Path="CatRoyale.App.csproj" />
 </Solution>
