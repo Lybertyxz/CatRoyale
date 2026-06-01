@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -9,7 +10,6 @@ namespace CatRoyale.Gameplay
         [Header("Visual")]
         [SerializeField] private Image _characterIcon;
         [SerializeField] private Image _healthBar;
-        [SerializeField] private Image _healthBarBackground;
         [SerializeField] private Image _rarityBorder;
 
         [Header("Info")]
@@ -22,18 +22,30 @@ namespace CatRoyale.Gameplay
         public int X { get; private set; }
         public int Y { get; private set; }
 
-        public void Setup(PieceStateData data, bool isLocalPlayer)
+        // ─── Setup ────────────────────────────────────────────
+
+        /// <summary>
+        /// Initialise la pièce. L'icône est passée depuis BoardView qui a déjà accès au PieceRepository.
+        /// </summary>
+        public void Setup(PieceStateData data, bool isLocalPlayer, Sprite icon = null)
         {
             _ownerID = data.OwnerID;
-            _maxHP = data.MaxHP;
+            _maxHP = data.MaxHP > 0 ? data.MaxHP : 1; // guard division par zéro
             X = data.X;
             Y = data.Y;
 
-            UpdateHP(data.CurrentHP);
+            if (_characterIcon && icon != null)
+                _characterIcon.sprite = icon;
 
-            // Flip la pièce si c'est l'adversaire
-            if (!isLocalPlayer)
-                transform.localScale = new Vector3(1, -1, 1);
+            UpdateHP(data.CurrentHP);
+        }
+
+        // ─── State Updates ────────────────────────────────────
+
+        public void UpdatePosition(int x, int y)
+        {
+            X = x;
+            Y = y;
         }
 
         public void UpdateHP(int currentHP)
@@ -48,25 +60,28 @@ namespace CatRoyale.Gameplay
             }
         }
 
-        public void MoveTo(Vector3 targetPosition)
+        // ─── Animations ───────────────────────────────────────
+
+        public void MoveTo(Vector2 targetPosition)
         {
+            StopCoroutine(nameof(MoveCoroutine));
             StartCoroutine(MoveCoroutine(targetPosition));
         }
 
-        private System.Collections.IEnumerator MoveCoroutine(Vector3 target)
+        private IEnumerator MoveCoroutine(Vector2 target)
         {
             float duration = 0.3f;
             float elapsed = 0f;
-            Vector3 start = transform.localPosition;
+            Vector2 start = ((RectTransform)transform).anchoredPosition;
 
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                transform.localPosition = Vector3.Lerp(start, target, elapsed / duration);
+                ((RectTransform)transform).anchoredPosition = Vector2.Lerp(start, target, elapsed / duration);
                 yield return null;
             }
 
-            transform.localPosition = target;
+            ((RectTransform)transform).anchoredPosition = target;
         }
 
         public void PlayAttackAnimation()
@@ -74,18 +89,17 @@ namespace CatRoyale.Gameplay
             StartCoroutine(AttackCoroutine());
         }
 
-        private System.Collections.IEnumerator AttackCoroutine()
+        private IEnumerator AttackCoroutine()
         {
-            Vector3 original = transform.localPosition;
-            Vector3 forward = original + new Vector3(0, 20f, 0);
-
+            Vector2 original = ((RectTransform)transform).anchoredPosition;
+            Vector2 forward = original + new Vector2(0, 20f);
             float duration = 0.15f;
             float elapsed = 0f;
 
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                transform.localPosition = Vector3.Lerp(original, forward, elapsed / duration);
+                ((RectTransform)transform).anchoredPosition = Vector2.Lerp(original, forward, elapsed / duration);
                 yield return null;
             }
 
@@ -93,11 +107,11 @@ namespace CatRoyale.Gameplay
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                transform.localPosition = Vector3.Lerp(forward, original, elapsed / duration);
+                ((RectTransform)transform).anchoredPosition = Vector2.Lerp(forward, original, elapsed / duration);
                 yield return null;
             }
 
-            transform.localPosition = original;
+            ((RectTransform)transform).anchoredPosition = original;
         }
 
         public void PlayDeathAnimation()
@@ -105,7 +119,7 @@ namespace CatRoyale.Gameplay
             StartCoroutine(DeathCoroutine());
         }
 
-        private System.Collections.IEnumerator DeathCoroutine()
+        private IEnumerator DeathCoroutine()
         {
             float duration = 0.5f;
             float elapsed = 0f;
@@ -115,7 +129,8 @@ namespace CatRoyale.Gameplay
             {
                 elapsed += Time.deltaTime;
                 float alpha = 1f - (elapsed / duration);
-                if (_characterIcon) _characterIcon.color = new Color(original.r, original.g, original.b, alpha);
+                if (_characterIcon)
+                    _characterIcon.color = new Color(original.r, original.g, original.b, alpha);
                 transform.localScale = Vector3.Lerp(Vector3.one, Vector3.zero, elapsed / duration);
                 yield return null;
             }

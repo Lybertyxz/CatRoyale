@@ -1,12 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
+using CatRoyale.Core;
+using CatRoyale.Data;
 
 namespace CatRoyale.Gameplay
 {
     public class BoardView : MonoBehaviour
     {
-        [Header("Board")]
+        [Header("Prefabs")]
         [SerializeField] private Transform _boardContainer;
         [SerializeField] private GameObject _cellPrefab;
         [SerializeField] private GameObject _piecePrefab;
@@ -19,12 +20,17 @@ namespace CatRoyale.Gameplay
         private Dictionary<string, PieceView> _pieces = new();
         private CellView _selectedCell;
         private string _localPlayerID;
+        private PieceRepository _repo;
 
-        public System.Action<int, int> OnCellSelected;
+        // Callback vers GameSceneController : (pieceX, pieceY, targetX, targetY)
+        public System.Action<int, int, int, int> OnActionRequested;
+
+        // ─── Init ─────────────────────────────────────────────
 
         public void Initialize(string localPlayerID)
         {
             _localPlayerID = localPlayerID;
+            _repo = ServiceLocator.Get<PieceRepository>();
             CreateBoard();
         }
 
@@ -41,41 +47,43 @@ namespace CatRoyale.Gameplay
 
                     var rect = cellObj.GetComponent<RectTransform>();
                     rect.sizeDelta = new Vector2(_cellSize, _cellSize);
-                    rect.anchoredPosition = new Vector2(
-                        x * _cellSize - (_boardSize * _cellSize / 2f) + _cellSize / 2f,
-                        y * _cellSize - (_boardSize * _cellSize / 2f) + _cellSize / 2f
-                    );
+                    rect.anchoredPosition = GetCellPosition(x, y);
 
-                    int capturedX = x, capturedY = y;
-                    cell.Setup(x, y, (c) => OnCellClicked(c));
+                    int cx = x, cy = y;
+                    cell.Setup(cx, cy, OnCellClicked);
                     _cells[y, x] = cell;
                 }
             }
         }
 
+        // ─── Input ────────────────────────────────────────────
+
         private void OnCellClicked(CellView cell)
         {
             if (_selectedCell == null)
             {
-                // Sélectionne la pièce
+                // Sélectionne une pièce locale
                 var piece = GetPieceAt(cell.X, cell.Y);
                 if (piece != null && piece.OwnerID == _localPlayerID)
                 {
                     _selectedCell = cell;
                     cell.SetHighlight(CellHighlight.Selected);
-                    HighlightAdjacentCells(cell.X, cell.Y);
+                    HighlightValidCells(cell.X, cell.Y);
                 }
             }
             else
             {
-                // Action sur la case cible
-                OnCellSelected?.Invoke(_selectedCell.X, _selectedCell.Y);
+                // Envoie l'action : pièce sélectionnée → case cible
+                int fromX = _selectedCell.X, fromY = _selectedCell.Y;
                 ClearHighlights();
                 _selectedCell = null;
+
+                if (cell.X != fromX || cell.Y != fromY)
+                    OnActionRequested?.Invoke(fromX, fromY, cell.X, cell.Y);
             }
         }
 
-        private void HighlightAdjacentCells(int x, int y)
+        private void HighlightValidCells(int x, int y)
         {
             for (int dy = -1; dy <= 1; dy++)
             {
@@ -101,16 +109,20 @@ namespace CatRoyale.Gameplay
                     _cells[y, x].SetHighlight(CellHighlight.None);
         }
 
+        // ─── Board Update ─────────────────────────────────────
+
         public void UpdateBoard(List<PieceStateData> pieces)
         {
-            // Retire les pièces mortes
+            if (pieces == null) return;
+
+            // Retire les pièces mortes ou absentes
             var toRemove = new List<string>();
             foreach (var kv in _pieces)
             {
-                bool found = false;
+                bool alive = false;
                 foreach (var p in pieces)
-                    if (p.TemplateID + p.OwnerID == kv.Key && p.IsAlive) { found = true; break; }
-                if (!found) toRemove.Add(kv.Key);
+                    if (p.TemplateID + p.OwnerID == kv.Key && p.IsAlive) { alive = true; break; }
+                if (!alive) toRemove.Add(kv.Key);
             }
             foreach (var key in toRemove)
             {
@@ -122,24 +134,27 @@ namespace CatRoyale.Gameplay
             foreach (var data in pieces)
             {
                 if (!data.IsAlive) continue;
+
                 string key = data.TemplateID + data.OwnerID;
+                var icon = _repo?.Get(data.TemplateID)?.Icon;
 
                 if (_pieces.TryGetValue(key, out var existing))
                 {
                     existing.UpdateHP(data.CurrentHP);
-                    var targetPos = GetCellPosition(data.X, data.Y);
-                    existing.MoveTo(targetPos);
+                    existing.MoveTo(GetCellPosition(data.X, data.Y));
                 }
                 else
                 {
                     var pieceObj = Instantiate(_piecePrefab, _boardContainer);
                     var piece = pieceObj.GetComponent<PieceView>();
-                    piece.Setup(data, data.OwnerID == _localPlayerID);
+                    piece.Setup(data, data.OwnerID == _localPlayerID, icon);
                     pieceObj.GetComponent<RectTransform>().anchoredPosition = GetCellPosition(data.X, data.Y);
                     _pieces[key] = piece;
                 }
             }
         }
+
+        // ─── Helpers ──────────────────────────────────────────
 
         private Vector2 GetCellPosition(int x, int y)
         {

@@ -1,10 +1,10 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using CatRoyale.Core;
 using CatRoyale.Network;
 using Newtonsoft.Json;
-using System.Collections.Generic;
 
 namespace CatRoyale.UI.Menu
 {
@@ -24,23 +24,32 @@ namespace CatRoyale.UI.Menu
 
         [Header("Battle")]
         [SerializeField] private TMP_Dropdown _deckDropdown;
-        private List<DeckResponse> _decks = new();
 
+        private List<DeckResponse> _decks = new();
         private NetworkService _network;
+        private ApiService _api;
+
+        // ─── Unity Lifecycle ──────────────────────────────────
 
         private void Awake()
         {
-            _playButton.onClick.AddListener(OnPlayClicked);
-            _collectionButton.onClick.AddListener(OnCollectionClicked);
-            _deckBuilderButton.onClick.AddListener(OnDeckBuilderClicked);
-            _shopButton.onClick.AddListener(OnShopClicked);
+            _playButton?.onClick.AddListener(OnPlayClicked);
+            _collectionButton?.onClick.AddListener(OnCollectionClicked);
+            _deckBuilderButton?.onClick.AddListener(OnDeckBuilderClicked);
+            _shopButton?.onClick.AddListener(OnShopClicked);
         }
 
         private void Start()
         {
             _network = ServiceLocator.Get<NetworkService>();
+            _api = ServiceLocator.Get<ApiService>();
+
             if (_network != null)
                 _network.OnMessageReceived += OnNetworkMessage;
+
+            if (_deckDropdown != null)
+                _deckDropdown.onValueChanged.AddListener(OnDeckSelected);
+
             LoadDecks();
         }
 
@@ -50,6 +59,8 @@ namespace CatRoyale.UI.Menu
                 _network.OnMessageReceived -= OnNetworkMessage;
         }
 
+        // ─── Network ──────────────────────────────────────────
+
         private void OnNetworkMessage(string rawMessage)
         {
             var envelope = JsonConvert.DeserializeObject<Envelope>(rawMessage);
@@ -57,7 +68,7 @@ namespace CatRoyale.UI.Menu
 
             if (envelope.Type == "game_start")
             {
-                Debug.Log("[MenuView] Game start received — loading Game scene.");
+                GameContext.PendingGameStartPayload = envelope.Payload?.ToString();
                 MainThreadDispatcher.Run(() =>
                 {
                     GameManager.Instance.SetState(GameState.InGame);
@@ -66,10 +77,19 @@ namespace CatRoyale.UI.Menu
             }
         }
 
+        // ─── Button Handlers ──────────────────────────────────
+
         private async void OnPlayClicked()
         {
-            Debug.Log("[MenuView] Play clicked");
-            GameManager.Instance.SetState(GameState.Matchmaking);
+            if (_decks.Count == 0 || _deckDropdown == null)
+            {
+                Debug.LogWarning("[MenuView] No deck available.");
+                return;
+            }
+
+            var selected = _decks[_deckDropdown.value];
+            GameContext.SelectedDeckID = selected.ID;
+            GameContext.SelectedDeckName = selected.Name;
 
             if (_network == null)
             {
@@ -79,45 +99,42 @@ namespace CatRoyale.UI.Menu
 
             var auth = ServiceLocator.Get<AuthService>();
             if (auth == null || !auth.IsLoggedIn)
-            {
-                Debug.LogWarning("[MenuView] Not logged in — using test connection.");
                 await _network.ConnectAsync("test_token");
-            }
             else
-            {
-                var token = await auth.GetFirebaseToken();
-                await _network.ConnectAsync(token);
-            }
-
-            // Récupère le deck sélectionné
-            string deckID = "";
-            if (_decks.Count > 0 && _deckDropdown != null)
-                deckID = _decks[_deckDropdown.value].ID;
+                await _network.ConnectAsync(await auth.GetFirebaseToken());
 
             var message = JsonConvert.SerializeObject(new
             {
                 type = "join_queue",
-                payload = JsonConvert.SerializeObject(new { deck_id = deckID })
+                payload = new { deck_id = GameContext.SelectedDeckID }
             });
 
             await _network.SendAsync(message);
-            Debug.Log($"[MenuView] Joined queue with deck: {deckID}");
+
+            GameManager.Instance.SetState(GameState.Matchmaking);
+            Debug.Log($"[MenuView] Joined queue with deck: {selected.Name} ({selected.ID})");
         }
 
-        private void OnCollectionClicked()
+        private void OnCollectionClicked() => ServiceLocator.Get<UIManager>().ShowView(ViewNames.Collection);
+        private void OnDeckBuilderClicked() => ServiceLocator.Get<UIManager>().ShowView(ViewNames.DeckBuilder);
+        private void OnShopClicked() => ServiceLocator.Get<UIManager>().ShowView(ViewNames.Booster);
+
+        // ─── Deck Selection ───────────────────────────────────
+
+        private async void OnDeckSelected(int index)
         {
-            ServiceLocator.Get<UIManager>().ShowView(ViewNames.Collection);
+            if (_decks.Count == 0 || index >= _decks.Count) return;
+
+            var selected = _decks[index];
+            var result = await _api.SetActiveDeck(selected.ID);
+
+            if (result.Success)
+                Debug.Log($"[MenuView] Active deck set: {selected.Name}");
+            else
+                Debug.LogWarning($"[MenuView] SetActiveDeck failed: {result.Error}");
         }
 
-        private void OnDeckBuilderClicked()
-        {
-            ServiceLocator.Get<UIManager>().ShowView(ViewNames.DeckBuilder);
-        }
-
-        private void OnShopClicked()
-        {
-            ServiceLocator.Get<UIManager>().ShowView(ViewNames.Booster);
-        }
+        // ─── UI ───────────────────────────────────────────────
 
         public void SetUserInfo(string username, int level, int coins, int gems)
         {
@@ -129,16 +146,18 @@ namespace CatRoyale.UI.Menu
 
         private async void LoadDecks()
         {
-            var api = ServiceLocator.Get<ApiService>();
-            var result = await api.GetDecks();
-
+            var result = await _api.GetDecks();
             if (!result.Success || result.Data == null) return;
 
             _decks = result.Data;
-            _deckDropdown?.ClearOptions();
 
-            var options = _decks.ConvertAll(d => new TMP_Dropdown.OptionData(d.Name));
-            _deckDropdown?.AddOptions(options);
+            _deckDropdown?.ClearOptions();
+            _deckDropdown?.AddOptions(_decks.ConvertAll(d => new TMP_Dropdown.OptionData(d.Name)));
+
+            // Sélectionne le deck actif par défaut sans déclencher OnDeckSelected
+            var activeIndex = _decks.FindIndex(d => d.IsActive);
+            if (activeIndex >= 0 && _deckDropdown != null)
+                _deckDropdown.SetValueWithoutNotify(activeIndex);
         }
     }
 }

@@ -47,7 +47,7 @@ func NewRouter(
 	// ─── Public ──────────────────────────────────────────
 	routes.RegisterAuthRoutes(api, authHandler)
 	routes.RegisterPublicBoosterRoutes(api, boosterHandler)
-	routes.RegisterWSRoutes(api, hub, firebase, roomManager, queue)
+	routes.RegisterWSRoutes(api, hub, firebase, roomManager, queue, cfg)
 
 	// ─── Protected ───────────────────────────────────────
 	var protected fiber.Router

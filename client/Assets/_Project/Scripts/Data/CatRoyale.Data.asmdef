@@ -3,9 +3,7 @@
     "rootNamespace": "CatRoyale.Data",
     "references": [
         "Unity.TextMeshPro",
-        "CatRoyale.Network",
-        "CatRoyale.Gameplay",
-        ""
+        "CatRoyale.Network"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

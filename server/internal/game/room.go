@@ -10,13 +10,11 @@ import (
 	"github.com/Lybertyxz/CatRoyale/server/pkg/protocol"
 )
 
-// RoomManager gère toutes les parties en cours
 type RoomManager struct {
 	mu      sync.RWMutex
 	matches map[string]*MatchRoom
 }
 
-// MatchRoom associe une partie à ses connexions WebSocket
 type MatchRoom struct {
 	Match        *Match
 	Processor    *TurnProcessor
@@ -30,7 +28,6 @@ func NewRoomManager() *RoomManager {
 	}
 }
 
-// CreateRoom crée une nouvelle salle de jeu
 func (rm *RoomManager) CreateRoom(matchID, p1ID, p2ID string, templates map[string]*PieceTemplate, sender func(string, string, interface{})) *MatchRoom {
 	match := NewMatch(matchID, p1ID, p2ID)
 	match.Templates = templates
@@ -49,7 +46,6 @@ func (rm *RoomManager) CreateRoom(matchID, p1ID, p2ID string, templates map[stri
 	return room
 }
 
-// GetRoom retourne une salle par son ID
 func (rm *RoomManager) GetRoom(matchID string) (*MatchRoom, bool) {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
@@ -57,7 +53,6 @@ func (rm *RoomManager) GetRoom(matchID string) (*MatchRoom, bool) {
 	return room, ok
 }
 
-// GetRoomByPlayer retourne la salle d'un joueur
 func (rm *RoomManager) GetRoomByPlayer(playerID string) (*MatchRoom, bool) {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
@@ -71,7 +66,6 @@ func (rm *RoomManager) GetRoomByPlayer(playerID string) (*MatchRoom, bool) {
 	return nil, false
 }
 
-// RemoveRoom supprime une salle terminée
 func (rm *RoomManager) RemoveRoom(matchID string) {
 	rm.mu.Lock()
 	delete(rm.matches, matchID)
@@ -79,7 +73,6 @@ func (rm *RoomManager) RemoveRoom(matchID string) {
 	log.Printf("[RoomManager] Room removed: %s", matchID)
 }
 
-// HandleAction traite l'action d'un joueur
 func (rm *RoomManager) HandleAction(playerID string, action PlayerAction) error {
 	room, ok := rm.GetRoomByPlayer(playerID)
 	if !ok {
@@ -92,10 +85,8 @@ func (rm *RoomManager) HandleAction(playerID string, action PlayerAction) error 
 		return err
 	}
 
-	// Envoie le nouvel état aux deux joueurs
 	rm.broadcastState(room)
 
-	// Vérifie si la partie est terminée
 	if winnerID := room.Match.CheckWinner(); winnerID != "" {
 		room.Match.Status = MatchStatusFinished
 		room.Match.WinnerID = winnerID
@@ -106,7 +97,6 @@ func (rm *RoomManager) HandleAction(playerID string, action PlayerAction) error 
 	return nil
 }
 
-// broadcastState envoie l'état complet de la partie aux deux joueurs
 func (rm *RoomManager) broadcastState(room *MatchRoom) {
 	state := rm.buildStatePayload(room)
 	for _, playerID := range room.Match.PlayerIDs {
@@ -122,16 +112,15 @@ func (rm *RoomManager) broadcastGameOver(room *MatchRoom, winnerID string) {
 }
 
 func (rm *RoomManager) buildStatePayload(room *MatchRoom) map[string]interface{} {
-	boardState := make([][]interface{}, BoardSize)
+	pieces := make([]interface{}, 0)
 	for y := 0; y < BoardSize; y++ {
-		boardState[y] = make([]interface{}, BoardSize)
 		for x := 0; x < BoardSize; x++ {
 			piece := room.Match.Board.Cells[y][x]
 			if piece != nil {
 				data, _ := json.Marshal(piece)
 				var obj interface{}
 				json.Unmarshal(data, &obj)
-				boardState[y][x] = obj
+				pieces = append(pieces, obj)
 			}
 		}
 	}
@@ -141,22 +130,20 @@ func (rm *RoomManager) buildStatePayload(room *MatchRoom) map[string]interface{}
 		"turn_number":    room.Match.TurnNumber,
 		"current_player": room.Match.CurrentPlayerID(),
 		"time_remaining": room.Match.TurnTimeRemaining().Seconds(),
-		"board":          boardState,
+		"pieces":         pieces,
 	}
 }
 
-// SubmitDeck reçoit et valide le deck d'un joueur
 func (rm *RoomManager) SubmitDeck(playerID string, payload protocol.SubmitDeckPayload) error {
 	room, ok := rm.GetRoomByPlayer(playerID)
 	if !ok {
 		return fmt.Errorf("player not in any room")
 	}
-
+	
 	if room.Match.Status != MatchStatusInProgress {
 		return fmt.Errorf("match not accepting decks")
 	}
-
-	// Trouve l'index du joueur (0 ou 1)
+	
 	playerIndex := -1
 	for i, id := range room.Match.PlayerIDs {
 		if id == playerID {
@@ -167,18 +154,20 @@ func (rm *RoomManager) SubmitDeck(playerID string, payload protocol.SubmitDeckPa
 	if playerIndex == -1 {
 		return fmt.Errorf("player not found in match")
 	}
-
-	// Construit et place les pièces sur le board
+	
 	for _, entry := range payload.Entries {
 		tmpl, ok := room.Match.Templates[entry.TemplateID]
 		if !ok {
 			return fmt.Errorf("unknown piece template: %s", entry.TemplateID)
 		}
-
+		// Joueur 0 → Y 0-1 (haut), Joueur 1 → Y 6-7 (bas, miroir)
 		pos := Position{X: entry.StartX, Y: entry.StartY}
+		if playerIndex == 1 {
+			pos.Y = BoardSize - 1 - entry.StartY
+		}
 
 		if !room.Match.Board.IsPlayerZone(pos, playerIndex) {
-			return fmt.Errorf("position not in player zone: %v", pos)
+			return fmt.Errorf("position not in player zone: %v (playerIndex: %d)", pos, playerIndex)
 		}
 
 		instance := &PieceInstance{
@@ -199,7 +188,6 @@ func (rm *RoomManager) SubmitDeck(playerID string, payload protocol.SubmitDeckPa
 	room.DecksReady[playerIndex] = true
 	room.SendToPlayer(playerID, "deck_ready", map[string]bool{"ready": true})
 
-	// Si les deux joueurs ont soumis leur deck → démarre la partie
 	if room.DecksReady[0] && room.DecksReady[1] {
 		rm.startMatch(room)
 	}
@@ -208,14 +196,14 @@ func (rm *RoomManager) SubmitDeck(playerID string, payload protocol.SubmitDeckPa
 }
 
 func (rm *RoomManager) startMatch(room *MatchRoom) {
-	room.Match.Status = MatchStatusInProgress
 	room.Match.TurnStartedAt = time.Now()
 
 	state := rm.buildStatePayload(room)
-	for _, playerID := range room.Match.PlayerIDs {
+	for i, playerID := range room.Match.PlayerIDs {
 		room.SendToPlayer(playerID, "game_ready", map[string]interface{}{
-			"message": "both players ready, game starts",
-			"state":   state,
+			"message":      "both players ready, game starts",
+			"state":        state,
+			"player_index": i, // ← envoie l'index au client
 		})
 	}
 

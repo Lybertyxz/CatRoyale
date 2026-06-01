@@ -69,41 +69,42 @@ func (h *DeckHandler) GetDeck(c *fiber.Ctx) error {
 
 // SaveDeck sauvegarde les entrées d'un deck
 func (h *DeckHandler) SaveDeck(c *fiber.Ctx) error {
-	userID := c.Locals("userID").(string)
-	deckID := c.Params("id")
+    userID := c.Locals("userID").(string)
+    deckID := c.Params("id")
 
-	// Vérifie que le deck appartient au joueur
-	deck, err := h.store.GetDeckByID(c.Context(), deckID)
-	if err != nil || deck.UserID != userID {
-		return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
-	}
+    deck, err := h.store.GetDeckByID(c.Context(), deckID)
+    if err != nil || deck.UserID != userID {
+        return c.Status(403).JSON(fiber.Map{"error": "forbidden"})
+    }
 
-	var body struct {
-		Entries []struct {
-			TemplateID string `json:"template_id"`
-			StartX     int    `json:"start_x"`
-			StartY     int    `json:"start_y"`
-		} `json:"entries"`
-	}
-	if err := c.BodyParser(&body); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
-	}
+    var body struct {
+        Entries []struct {
+            TemplateID string `json:"template_id"`
+            StartX     int    `json:"start_x"`
+            StartY     int    `json:"start_y"`
+        } `json:"entries"`
+    }
+    if err := c.BodyParser(&body); err != nil {
+        return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+    }
 
-	// Supprime les anciennes entrées
-	h.store.DeleteDeckEntries(c.Context(), deckID)
+    if err := h.store.DeleteDeckEntries(c.Context(), deckID); err != nil {
+        return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+    }
 
-	// Ajoute les nouvelles
-	for _, entry := range body.Entries {
-		h.store.AddDeckEntry(c.Context(), postgres.AddDeckEntryParams{
-			ID:         uuid.New().String(),
-			DeckID:     deckID,
-			TemplateID: entry.TemplateID,
-			StartX:     int32(entry.StartX),
-			StartY:     int32(entry.StartY),
-		})
-	}
+    for _, entry := range body.Entries {
+        if _, err := h.store.AddDeckEntry(c.Context(), postgres.AddDeckEntryParams{
+            ID:         uuid.New().String(),
+            DeckID:     deckID,
+            TemplateID: entry.TemplateID,
+            StartX:     int32(entry.StartX),
+            StartY:     int32(entry.StartY),
+        }); err != nil {
+            return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+        }
+    }
 
-	return c.JSON(fiber.Map{"success": true})
+    return c.JSON(fiber.Map{"success": true})
 }
 
 // SetActiveDeck définit le deck actif du joueur

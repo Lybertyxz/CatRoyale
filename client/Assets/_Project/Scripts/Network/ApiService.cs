@@ -87,6 +87,14 @@ namespace CatRoyale.Network
         public async Task<ApiResult<DeckDetailResponse>> GetDeckDetail(string deckID)
             => await Get<DeckDetailResponse>($"/api/v1/decks/{deckID}");
 
+        public async Task<ApiResult<bool>> SetActiveDeck(string deckID)
+        {
+            var result = await Put($"/api/v1/decks/{deckID}/active", "{}");
+            return result.Success
+                ? ApiResult<bool>.Ok(true)
+                : ApiResult<bool>.Fail(result.Error, result.StatusCode);
+        }
+
         // ─── HTTP Helpers ─────────────────────────────────────
         private async Task<ApiResult<T>> Get<T>(string endpoint)
         {
