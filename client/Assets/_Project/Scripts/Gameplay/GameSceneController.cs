@@ -51,16 +51,10 @@ namespace CatRoyale.Gameplay
         {
             _network = ServiceLocator.Get<NetworkService>();
             _api = ServiceLocator.Get<ApiService>();
-            _localPlayerID = ServiceLocator.Get<AuthService>()?.UserID;
             _pendingDeckID = GameContext.SelectedDeckID;
 
             if (_network != null)
                 _network.OnMessageReceived += OnMessageReceived;
-
-            _boardView?.Initialize(_localPlayerID);
-
-            if (_boardView != null)
-                _boardView.OnActionRequested += OnBoardAction;
 
             // Rejoue le game_start si reçu avant le chargement de la scène
             if (!string.IsNullOrEmpty(GameContext.PendingGameStartPayload))
@@ -68,6 +62,12 @@ namespace CatRoyale.Gameplay
                 HandleGameStart(GameContext.PendingGameStartPayload);
                 GameContext.PendingGameStartPayload = null;
             }
+
+            _boardView?.Initialize(_localPlayerID);
+
+            if (_boardView != null)
+                _boardView.OnActionRequested += OnBoardAction;
+
         }
 
         private void OnDestroy()
@@ -123,6 +123,7 @@ namespace CatRoyale.Gameplay
             if (data == null) return;
 
             _matchID = data.MatchID;
+            _localPlayerID = data.PlayerID;
             _opponentName = data.Opponent;
             _isMyTurn = data.YourTurn;
             _timeRemaining = data.TurnDuration;
@@ -150,6 +151,7 @@ namespace CatRoyale.Gameplay
             var state = JsonConvert.DeserializeObject<GameStatePayload>(payload);
             if (state == null) return;
 
+            Debug.Log($"[GameSceneController] TurnResult — currentPlayer: {state.CurrentPlayer} | localID: {_localPlayerID} | isMyTurn: {_isMyTurn}");
             _isMyTurn = state.CurrentPlayer == _localPlayerID;
             _timeRemaining = state.TimeRemaining;
             _boardView?.UpdateBoard(state.Pieces);
@@ -250,6 +252,7 @@ namespace CatRoyale.Gameplay
 
     public class GameStartPayload
     {
+        [JsonProperty("player_id")] public string PlayerID { get; set; }
         [JsonProperty("match_id")] public string MatchID { get; set; }
         [JsonProperty("opponent")] public string Opponent { get; set; }
         [JsonProperty("your_turn")] public bool YourTurn { get; set; }

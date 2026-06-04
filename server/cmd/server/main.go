@@ -75,6 +75,24 @@ func main() {
 		)
 		room.Match.Status = game.MatchStatusInProgress
 
+		// ── Notifie les joueurs ───────────────────────────────
+		sender(match.Player1.UserID, "game_start", map[string]interface{}{
+		    "match_id":      match.MatchID,
+		    "opponent":      match.Player2.Username,
+		    "your_turn":     true,
+		    "turn_duration": game.DefaultTurnTimeSeconds,
+		    "player_index":  0,
+		    "player_id":     match.Player1.UserID,
+		})
+		sender(match.Player2.UserID, "game_start", map[string]interface{}{
+		    "match_id":      match.MatchID,
+		    "opponent":      match.Player1.Username,
+		    "your_turn":     false,
+		    "turn_duration": game.DefaultTurnTimeSeconds,
+		    "player_index":  1,
+		    "player_id":     match.Player2.UserID,
+		})
+		
 		// ── Auto-submit des decks actifs ──────────────────────
 		players := []matchmaking.Player{match.Player1, match.Player2}
 		for i, player := range players {
@@ -109,22 +127,6 @@ func main() {
 
 			log.Printf("[Matchmaking] Deck auto-submitted for %s (playerIndex: %d)", player.UserID, i)
 		}
-
-		// ── Notifie les joueurs ───────────────────────────────
-		sender(match.Player1.UserID, "game_start", map[string]interface{}{
-			"match_id":      match.MatchID,
-			"opponent":      match.Player2.Username,
-			"your_turn":     true,
-			"turn_duration": game.DefaultTurnTimeSeconds,
-			"player_index":  0,
-		})
-		sender(match.Player2.UserID, "game_start", map[string]interface{}{
-			"match_id":      match.MatchID,
-			"opponent":      match.Player1.Username,
-			"your_turn":     false,
-			"turn_duration": game.DefaultTurnTimeSeconds,
-			"player_index":  1,
-		})
 	})
 
 	go queue.Run(context.Background())

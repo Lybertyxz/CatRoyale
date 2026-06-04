@@ -113,8 +113,8 @@ namespace CatRoyale.Gameplay
 
         public void UpdateBoard(List<PieceStateData> pieces)
         {
+            Debug.Log($"[BoardView] UpdateBoard called with {pieces?.Count} pieces");
             if (pieces == null) return;
-
             // Retire les pièces mortes ou absentes
             var toRemove = new List<string>();
             foreach (var kv in _pieces)
