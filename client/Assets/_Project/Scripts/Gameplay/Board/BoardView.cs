@@ -20,17 +20,20 @@ namespace CatRoyale.Gameplay
         private Dictionary<string, PieceView> _pieces = new();
         private CellView _selectedCell;
         private string _localPlayerID;
+        private int _playerIndex;
         private PieceRepository _repo;
 
-        // Callback vers GameSceneController : (pieceX, pieceY, targetX, targetY)
         public System.Action<int, int, int, int> OnActionRequested;
+        public bool IsInitialized { get; private set; }
 
         // ─── Init ─────────────────────────────────────────────
 
-        public void Initialize(string localPlayerID)
+        public void Initialize(string localPlayerID, int playerIndex = 0)
         {
             _localPlayerID = localPlayerID;
+            _playerIndex = playerIndex;
             _repo = ServiceLocator.Get<PieceRepository>();
+            IsInitialized = true;
             CreateBoard();
         }
 
@@ -44,8 +47,8 @@ namespace CatRoyale.Gameplay
                 {
                     var cellObj = Instantiate(_cellPrefab, _boardContainer);
                     var cell = cellObj.GetComponent<CellView>();
-
                     var rect = cellObj.GetComponent<RectTransform>();
+
                     rect.sizeDelta = new Vector2(_cellSize, _cellSize);
                     rect.anchoredPosition = GetCellPosition(x, y);
 
@@ -62,7 +65,6 @@ namespace CatRoyale.Gameplay
         {
             if (_selectedCell == null)
             {
-                // Sélectionne une pièce locale
                 var piece = GetPieceAt(cell.X, cell.Y);
                 if (piece != null && piece.OwnerID == _localPlayerID)
                 {
@@ -73,7 +75,6 @@ namespace CatRoyale.Gameplay
             }
             else
             {
-                // Envoie l'action : pièce sélectionnée → case cible
                 int fromX = _selectedCell.X, fromY = _selectedCell.Y;
                 ClearHighlights();
                 _selectedCell = null;
@@ -113,9 +114,8 @@ namespace CatRoyale.Gameplay
 
         public void UpdateBoard(List<PieceStateData> pieces)
         {
-            Debug.Log($"[BoardView] UpdateBoard called with {pieces?.Count} pieces");
             if (pieces == null) return;
-            // Retire les pièces mortes ou absentes
+
             var toRemove = new List<string>();
             foreach (var kv in _pieces)
             {
@@ -130,7 +130,6 @@ namespace CatRoyale.Gameplay
                 _pieces.Remove(key);
             }
 
-            // Met à jour ou crée les pièces
             foreach (var data in pieces)
             {
                 if (!data.IsAlive) continue;
@@ -138,17 +137,21 @@ namespace CatRoyale.Gameplay
                 string key = data.TemplateID + data.OwnerID;
                 var icon = _repo?.Get(data.TemplateID)?.Icon;
 
+                // Convertit les coordonnées serveur en position visuelle
+                var pos = GetCellPosition(data.X, data.Y);
+
                 if (_pieces.TryGetValue(key, out var existing))
                 {
                     existing.UpdateHP(data.CurrentHP);
-                    existing.MoveTo(GetCellPosition(data.X, data.Y));
+                    existing.UpdatePosition(data.X, data.Y);
+                    existing.MoveTo(pos);
                 }
                 else
                 {
                     var pieceObj = Instantiate(_piecePrefab, _boardContainer);
                     var piece = pieceObj.GetComponent<PieceView>();
                     piece.Setup(data, data.OwnerID == _localPlayerID, icon);
-                    pieceObj.GetComponent<RectTransform>().anchoredPosition = GetCellPosition(data.X, data.Y);
+                    pieceObj.GetComponent<RectTransform>().anchoredPosition = pos;
                     _pieces[key] = piece;
                 }
             }
@@ -156,11 +159,18 @@ namespace CatRoyale.Gameplay
 
         // ─── Helpers ──────────────────────────────────────────
 
+        /// <summary>
+        /// Convertit les coordonnées logiques (serveur) en position UI.
+        /// Joueur 0 (haut) : Y croissant vers le haut.
+        /// Joueur 1 (bas)  : board retourné — Y croissant vers le bas.
+        /// </summary>
         private Vector2 GetCellPosition(int x, int y)
         {
+            int displayY = _playerIndex == 1 ? (_boardSize - 1 - y) : y;
+
             return new Vector2(
                 x * _cellSize - (_boardSize * _cellSize / 2f) + _cellSize / 2f,
-                y * _cellSize - (_boardSize * _cellSize / 2f) + _cellSize / 2f
+                displayY * _cellSize - (_boardSize * _cellSize / 2f) + _cellSize / 2f
             );
         }
 

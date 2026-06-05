@@ -80,7 +80,7 @@ func main() {
 		    "match_id":      match.MatchID,
 		    "opponent":      match.Player2.Username,
 		    "your_turn":     true,
-		    "turn_duration": game.DefaultTurnTimeSeconds,
+		    "turn_duration": int(game.DefaultTimeBank.Seconds()),
 		    "player_index":  0,
 		    "player_id":     match.Player1.UserID,
 		})
@@ -88,7 +88,7 @@ func main() {
 		    "match_id":      match.MatchID,
 		    "opponent":      match.Player1.Username,
 		    "your_turn":     false,
-		    "turn_duration": game.DefaultTurnTimeSeconds,
+		    "turn_duration": int(game.DefaultTimeBank.Seconds()),
 		    "player_index":  1,
 		    "player_id":     match.Player2.UserID,
 		})

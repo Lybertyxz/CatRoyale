@@ -125,12 +125,16 @@ func (rm *RoomManager) buildStatePayload(room *MatchRoom) map[string]interface{}
 		}
 	}
 
+	m := room.Match
 	return map[string]interface{}{
-		"match_id":       room.Match.ID,
-		"turn_number":    room.Match.TurnNumber,
-		"current_player": room.Match.CurrentPlayerID(),
-		"time_remaining": room.Match.TurnTimeRemaining().Seconds(),
-		"pieces":         pieces,
+		"match_id":        m.ID,
+		"turn_number":     m.TurnNumber,
+		"current_player":  m.CurrentPlayerID(),
+		"time_bank_p0":    m.TimeBanks[0].Seconds(),
+		"time_bank_p1":    m.TimeBanks[1].Seconds(),
+		"remaining_pa":    m.Turn.RemainingPA,
+		"remaining_pm":    m.Turn.RemainingPM,
+		"pieces":          pieces,
 	}
 }
 
@@ -139,11 +143,11 @@ func (rm *RoomManager) SubmitDeck(playerID string, payload protocol.SubmitDeckPa
 	if !ok {
 		return fmt.Errorf("player not in any room")
 	}
-	
+
 	if room.Match.Status != MatchStatusInProgress {
 		return fmt.Errorf("match not accepting decks")
 	}
-	
+
 	playerIndex := -1
 	for i, id := range room.Match.PlayerIDs {
 		if id == playerID {
@@ -154,13 +158,13 @@ func (rm *RoomManager) SubmitDeck(playerID string, payload protocol.SubmitDeckPa
 	if playerIndex == -1 {
 		return fmt.Errorf("player not found in match")
 	}
-	
+
 	for _, entry := range payload.Entries {
 		tmpl, ok := room.Match.Templates[entry.TemplateID]
 		if !ok {
 			return fmt.Errorf("unknown piece template: %s", entry.TemplateID)
 		}
-		// Joueur 0 → Y 0-1 (haut), Joueur 1 → Y 6-7 (bas, miroir)
+
 		pos := Position{X: entry.StartX, Y: entry.StartY}
 		if playerIndex == 1 {
 			pos.Y = BoardSize - 1 - entry.StartY
@@ -203,7 +207,7 @@ func (rm *RoomManager) startMatch(room *MatchRoom) {
 		room.SendToPlayer(playerID, "game_ready", map[string]interface{}{
 			"message":      "both players ready, game starts",
 			"state":        state,
-			"player_index": i, // ← envoie l'index au client
+			"player_index": i,
 		})
 	}
 

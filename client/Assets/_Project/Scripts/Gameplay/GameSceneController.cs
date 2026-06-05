@@ -16,8 +16,11 @@ namespace CatRoyale.Gameplay
 
         [Header("HUD")]
         [SerializeField] private TextMeshProUGUI _turnText;
-        [SerializeField] private TextMeshProUGUI _timerText;
+        [SerializeField] private TextMeshProUGUI _timerP0Text;
+        [SerializeField] private TextMeshProUGUI _timerP1Text;
         [SerializeField] private TextMeshProUGUI _opponentNameText;
+        [SerializeField] private TextMeshProUGUI _paText;
+        [SerializeField] private TextMeshProUGUI _pmText;
         [SerializeField] private Button _skipTurnButton;
 
         [Header("Result")]
@@ -29,11 +32,14 @@ namespace CatRoyale.Gameplay
         private string _matchID;
         private string _localPlayerID;
         private string _opponentName;
-        private int _playerIndex;   // 0 = haut du board, 1 = bas du board
+        private int _playerIndex;
         private bool _isMyTurn;
-        private float _timeRemaining;
         private bool _gameOver;
-        private string _pendingDeckID;
+        private float _timeBankP0;
+        private float _timeBankP1;
+        private int _remainingPA;
+        private int _remainingPM;
+        private bool _timeBankExpired = false;
 
         private NetworkService _network;
         private ApiService _api;
@@ -51,23 +57,20 @@ namespace CatRoyale.Gameplay
         {
             _network = ServiceLocator.Get<NetworkService>();
             _api = ServiceLocator.Get<ApiService>();
-            _pendingDeckID = GameContext.SelectedDeckID;
 
             if (_network != null)
                 _network.OnMessageReceived += OnMessageReceived;
 
-            // Rejoue le game_start si reçu avant le chargement de la scène
             if (!string.IsNullOrEmpty(GameContext.PendingGameStartPayload))
             {
                 HandleGameStart(GameContext.PendingGameStartPayload);
                 GameContext.PendingGameStartPayload = null;
             }
 
-            _boardView?.Initialize(_localPlayerID);
+            _boardView?.Initialize(_localPlayerID, _playerIndex);
 
             if (_boardView != null)
                 _boardView.OnActionRequested += OnBoardAction;
-
         }
 
         private void OnDestroy()
@@ -78,10 +81,20 @@ namespace CatRoyale.Gameplay
 
         private void Update()
         {
-            if (_gameOver || !_isMyTurn) return;
-            _timeRemaining -= Time.deltaTime;
-            if (_timerText) _timerText.text = Mathf.CeilToInt(_timeRemaining).ToString();
-            if (_timeRemaining <= 0) OnSkipTurn();
+            if (_gameOver || _timeBankExpired) return;
+            if (_isMyTurn)
+            {
+                _timeBankP0 = Mathf.Max(0, _timeBankP0 - Time.deltaTime);
+                if (_timeBankP0 <= 0)
+                {
+                    _timeBankExpired = true;
+                    OnSkipTurn();
+                }
+            }
+            else
+                _timeBankP1 = Mathf.Max(0, _timeBankP1 - Time.deltaTime);
+
+            UpdateTimerUI();
         }
 
         // ─── WebSocket Messages ───────────────────────────────
@@ -97,7 +110,6 @@ namespace CatRoyale.Gameplay
                     MainThreadDispatcher.Run(() => HandleGameStart(envelope.Payload?.ToString() ?? "{}"));
                     break;
                 case "deck_ready":
-                    // Accusé de réception du deck — rien à faire
                     break;
                 case "game_ready":
                     MainThreadDispatcher.Run(() => HandleGameReady(envelope.Payload?.ToString() ?? "{}"));
@@ -117,7 +129,7 @@ namespace CatRoyale.Gameplay
 
         // ─── Handlers ─────────────────────────────────────────
 
-        private async void HandleGameStart(string payload)
+        private void HandleGameStart(string payload)
         {
             var data = JsonConvert.DeserializeObject<GameStartPayload>(payload);
             if (data == null) return;
@@ -126,14 +138,16 @@ namespace CatRoyale.Gameplay
             _localPlayerID = data.PlayerID;
             _opponentName = data.Opponent;
             _isMyTurn = data.YourTurn;
-            _timeRemaining = data.TurnDuration;
             _playerIndex = data.PlayerIndex;
+            _timeBankP0 = data.TimeBankSeconds;
+            _timeBankP1 = data.TimeBankSeconds;
+            _remainingPA = 1;
+            _remainingPM = 1;
 
             if (_opponentNameText) _opponentNameText.text = _opponentName;
             UpdateTurnUI();
-
-            Debug.Log($"[GameSceneController] Game start — match: {_matchID} | playerIndex: {_playerIndex} | myTurn: {_isMyTurn}");
-
+            UpdateTimerUI();
+            UpdateActionUI();
         }
 
         private void HandleGameReady(string payload)
@@ -141,9 +155,10 @@ namespace CatRoyale.Gameplay
             var data = JsonConvert.DeserializeObject<GameReadyPayload>(payload);
             if (data?.State == null) return;
 
-            Debug.Log("[GameSceneController] Game ready — updating board.");
-            _boardView?.UpdateBoard(data.State.Pieces);
-            UpdateTurnUI();
+            if (_boardView != null && !_boardView.IsInitialized)
+                _boardView.Initialize(_localPlayerID);
+
+            ApplyState(data.State);
         }
 
         private void HandleTurnResult(string payload)
@@ -151,11 +166,22 @@ namespace CatRoyale.Gameplay
             var state = JsonConvert.DeserializeObject<GameStatePayload>(payload);
             if (state == null) return;
 
-            Debug.Log($"[GameSceneController] TurnResult — currentPlayer: {state.CurrentPlayer} | localID: {_localPlayerID} | isMyTurn: {_isMyTurn}");
+            ApplyState(state);
+        }
+
+        private void ApplyState(GameStatePayload state)
+        {
             _isMyTurn = state.CurrentPlayer == _localPlayerID;
-            _timeRemaining = state.TimeRemaining;
+            _timeBankP0 = state.TimeBankP0;
+            _timeBankP1 = state.TimeBankP1;
+            _remainingPA = state.RemainingPA;
+            _remainingPM = state.RemainingPM;
+            _timeBankExpired = false;
+
             _boardView?.UpdateBoard(state.Pieces);
             UpdateTurnUI();
+            UpdateTimerUI();
+            UpdateActionUI();
         }
 
         private void HandleGameOver(string payload)
@@ -170,38 +196,6 @@ namespace CatRoyale.Gameplay
         }
 
         // ─── Actions ──────────────────────────────────────────
-
-        private async Task SubmitDeck()
-        {
-            if (string.IsNullOrEmpty(_pendingDeckID))
-            {
-                Debug.LogWarning("[GameSceneController] No deck selected.");
-                return;
-            }
-
-            var result = await _api.GetDeckDetail(_pendingDeckID);
-            if (!result.Success || result.Data?.Entries == null)
-            {
-                Debug.LogError($"[GameSceneController] Failed to load deck: {result.Error}");
-                return;
-            }
-
-            var entries = result.Data.Entries.ConvertAll(e => new DeckEntryPayload
-            {
-                template_id = e.TemplateID,
-                start_x = e.StartX,
-                start_y = e.StartY
-            });
-
-            var message = JsonConvert.SerializeObject(new
-            {
-                type = "submit_deck",
-                payload = new { match_id = _matchID, entries }
-            });
-
-            await _network.SendAsync(message);
-            Debug.Log($"[GameSceneController] Deck submitted — {entries.Count} pieces, playerIndex: {_playerIndex}");
-        }
 
         public void SendAction(string type, int pieceX, int pieceY, int targetX, int targetY, string abilityID = "")
         {
@@ -224,8 +218,12 @@ namespace CatRoyale.Gameplay
 
         private void OnBoardAction(int fromX, int fromY, int toX, int toY)
         {
-            // Le serveur détermine si c'est un move ou attack selon la case cible
             SendAction("move", fromX, fromY, toX, toY);
+        }
+
+        public void OnAbilityRequested(int pieceX, int pieceY, int targetX, int targetY, string abilityID)
+        {
+            SendAction("ability", pieceX, pieceY, targetX, targetY, abilityID);
         }
 
         private void OnSkipTurn()
@@ -246,6 +244,25 @@ namespace CatRoyale.Gameplay
             if (_turnText) _turnText.text = _isMyTurn ? "Votre tour" : $"Tour de {_opponentName}";
             if (_skipTurnButton) _skipTurnButton.interactable = _isMyTurn && !_gameOver;
         }
+
+        private void UpdateTimerUI()
+        {
+            if (_timerP0Text) _timerP0Text.text = FormatTime(_timeBankP0);
+            if (_timerP1Text) _timerP1Text.text = FormatTime(_timeBankP1);
+        }
+
+        private void UpdateActionUI()
+        {
+            if (_paText) _paText.text = $"PA: {_remainingPA}/1";
+            if (_pmText) _pmText.text = $"PM: {_remainingPM}/1";
+        }
+
+        private string FormatTime(float seconds)
+        {
+            int m = Mathf.FloorToInt(seconds / 60);
+            int s = Mathf.FloorToInt(seconds % 60);
+            return $"{m:00}:{s:00}";
+        }
     }
 
     // ─── Payloads ─────────────────────────────────────────────
@@ -256,7 +273,7 @@ namespace CatRoyale.Gameplay
         [JsonProperty("match_id")] public string MatchID { get; set; }
         [JsonProperty("opponent")] public string Opponent { get; set; }
         [JsonProperty("your_turn")] public bool YourTurn { get; set; }
-        [JsonProperty("turn_duration")] public int TurnDuration { get; set; }
+        [JsonProperty("turn_duration")] public float TimeBankSeconds { get; set; }
         [JsonProperty("player_index")] public int PlayerIndex { get; set; }
     }
 
@@ -270,7 +287,10 @@ namespace CatRoyale.Gameplay
     public class GameStatePayload
     {
         [JsonProperty("current_player")] public string CurrentPlayer { get; set; }
-        [JsonProperty("time_remaining")] public float TimeRemaining { get; set; }
+        [JsonProperty("time_bank_p0")] public float TimeBankP0 { get; set; }
+        [JsonProperty("time_bank_p1")] public float TimeBankP1 { get; set; }
+        [JsonProperty("remaining_pa")] public int RemainingPA { get; set; }
+        [JsonProperty("remaining_pm")] public int RemainingPM { get; set; }
         [JsonProperty("turn_number")] public int TurnNumber { get; set; }
         [JsonProperty("pieces")] public List<PieceStateData> Pieces { get; set; }
     }

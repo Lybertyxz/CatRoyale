@@ -2,7 +2,6 @@ package game
 
 import "fmt"
 
-// TurnProcessor gère la logique d'un tour
 type TurnProcessor struct {
 	match *Match
 }
@@ -11,7 +10,6 @@ func NewTurnProcessor(match *Match) *TurnProcessor {
 	return &TurnProcessor{match: match}
 }
 
-// ProcessAction valide et applique l'action d'un joueur
 func (t *TurnProcessor) ProcessAction(action PlayerAction) error {
 	if t.match.Status != MatchStatusInProgress {
 		return fmt.Errorf("match is not in progress")
@@ -19,20 +17,18 @@ func (t *TurnProcessor) ProcessAction(action PlayerAction) error {
 	if action.PlayerID != t.match.CurrentPlayerID() {
 		return fmt.Errorf("not your turn")
 	}
-	if t.match.IsTurnExpired() {
-		t.skipTurn(action.PlayerID)
-		return fmt.Errorf("turn expired")
+	if t.match.IsTimeExpired() {
+		t.endTurn()
+		return nil
 	}
 
 	switch action.Type {
 	case ActionMove:
 		return t.processMove(action)
-	case ActionAttack:
-		return t.processAttack(action)
 	case ActionAbility:
 		return t.processAbility(action)
 	case ActionSkip:
-		t.skipTurn(action.PlayerID)
+		t.endTurn()
 		return nil
 	default:
 		return fmt.Errorf("unknown action type: %s", action.Type)
@@ -40,6 +36,12 @@ func (t *TurnProcessor) ProcessAction(action PlayerAction) error {
 }
 
 func (t *TurnProcessor) processMove(action PlayerAction) error {
+	ts := t.match.Turn
+
+	if ts.RemainingPM <= 0 {
+		return fmt.Errorf("no PM remaining")
+	}
+
 	piece := t.match.Board.GetPiece(action.PiecePos)
 	if piece == nil {
 		return fmt.Errorf("no piece at position")
@@ -54,62 +56,48 @@ func (t *TurnProcessor) processMove(action PlayerAction) error {
 		return fmt.Errorf("piece is immobilized")
 	}
 
+	pieceKey := piece.TemplateID + piece.OwnerID
+	if ts.HasMoved(pieceKey) {
+		return fmt.Errorf("piece already moved this turn")
+	}
+
 	tmpl, ok := t.match.Templates[piece.TemplateID]
 	if !ok {
 		return fmt.Errorf("template not found")
 	}
-
 	if !t.isValidMove(piece, action.TargetPos, tmpl) {
 		return fmt.Errorf("invalid move")
 	}
 
 	t.match.Board.MovePiece(action.PiecePos, action.TargetPos)
-	t.endTurn()
-	return nil
-}
+	ts.RegisterMove(pieceKey)
 
-func (t *TurnProcessor) processAttack(action PlayerAction) error {
-	attacker := t.match.Board.GetPiece(action.PiecePos)
-	target := t.match.Board.GetPiece(action.TargetPos)
-
-	if attacker == nil || target == nil {
-		return fmt.Errorf("piece not found")
+	// Auto end turn si PA et PM épuisés
+	if ts.RemainingPA <= 0 && ts.RemainingPM <= 0 {
+		t.endTurn()
 	}
-	if attacker.OwnerID != action.PlayerID {
-		return fmt.Errorf("not your piece")
-	}
-	if target.OwnerID == action.PlayerID {
-		return fmt.Errorf("cannot attack your own piece")
-	}
-	if !attacker.IsAlive || !target.IsAlive {
-		return fmt.Errorf("piece is dead")
-	}
-	if hasState(attacker, StateStun) {
-		return fmt.Errorf("piece is stunned")
-	}
-
-	tmpl, ok := t.match.Templates[attacker.TemplateID]
-	if !ok {
-		return fmt.Errorf("template not found")
-	}
-
-	if !t.isInAttackRange(attacker.Position, action.TargetPos, tmpl) {
-		return fmt.Errorf("target out of range")
-	}
-
-	t.applyDamage(attacker, target, tmpl.Attack, DamageTypeNormal)
-	t.checkDeath(target)
-	t.endTurn()
 	return nil
 }
 
 func (t *TurnProcessor) processAbility(action PlayerAction) error {
+	ts := t.match.Turn
+
+	if ts.RemainingPA <= 0 {
+		return fmt.Errorf("no PA remaining")
+	}
+
 	caster := t.match.Board.GetPiece(action.PiecePos)
 	if caster == nil {
 		return fmt.Errorf("piece not found")
 	}
 	if caster.OwnerID != action.PlayerID {
 		return fmt.Errorf("not your piece")
+	}
+	if !caster.IsAlive {
+		return fmt.Errorf("piece is dead")
+	}
+	if hasState(caster, StateStun) {
+		return fmt.Errorf("piece is stunned")
 	}
 
 	cd, onCooldown := caster.AbilityCooldowns[action.AbilityID]
@@ -132,6 +120,14 @@ func (t *TurnProcessor) processAbility(action PlayerAction) error {
 	if ability == nil {
 		return fmt.Errorf("ability not found")
 	}
+	if ability.Type == AbilityPassive {
+		return fmt.Errorf("cannot manually trigger passive ability")
+	}
+
+	pieceKey := caster.TemplateID + caster.OwnerID
+	if ts.HasUsedAbility(pieceKey, action.AbilityID) {
+		return fmt.Errorf("ability already used this turn")
+	}
 
 	target := t.match.Board.GetPiece(action.TargetPos)
 	t.applyAbilityEffects(caster, target, ability)
@@ -139,26 +135,27 @@ func (t *TurnProcessor) processAbility(action PlayerAction) error {
 	if ability.Cooldown > 0 {
 		caster.AbilityCooldowns[action.AbilityID] = ability.Cooldown
 	}
+	ts.RegisterAbility(pieceKey, action.AbilityID)
 
-	t.endTurn()
+	// Auto end turn si PA et PM épuisés
+	if ts.RemainingPA <= 0 && ts.RemainingPM <= 0 {
+		t.endTurn()
+	}
 	return nil
 }
 
 func (t *TurnProcessor) applyDamage(attacker, target *PieceInstance, rawDamage int, dmgType DamageType) {
+	if target == nil {
+		return
+	}
 	damage := rawDamage
-
 	switch dmgType {
 	case DamageTypeNormal:
 		targetTmpl := t.match.Templates[target.TemplateID]
 		if targetTmpl != nil {
 			damage -= targetTmpl.Armor
 		}
-	case DamageTypePiercing:
-		// ignore armor
-	case DamageTypeTrue:
-		// ignore tout
 	}
-
 	if damage < 0 {
 		damage = 0
 	}
@@ -188,7 +185,6 @@ func (t *TurnProcessor) applyEffect(caster, target *PieceInstance, effect Abilit
 			target.CurrentHP = min(target.CurrentHP+effect.Value, tmpl.MaxHP)
 		}
 	default:
-		// Applique un état (poison, freeze, stun etc.)
 		addState(target, StatusEffect{
 			Type:     effect.Type,
 			Duration: effect.Duration,
@@ -199,15 +195,12 @@ func (t *TurnProcessor) applyEffect(caster, target *PieceInstance, effect Abilit
 }
 
 func (t *TurnProcessor) checkDeath(piece *PieceInstance) {
-	if piece.CurrentHP <= 0 {
-		piece.IsAlive = false
-		piece.CurrentHP = 0
-		t.match.Board.RemovePiece(piece.Position)
+	if piece == nil || piece.CurrentHP > 0 {
+		return
 	}
-}
-
-func (t *TurnProcessor) skipTurn(playerID string) {
-	t.endTurn()
+	piece.IsAlive = false
+	piece.CurrentHP = 0
+	t.match.Board.RemovePiece(piece.Position)
 }
 
 func (t *TurnProcessor) endTurn() {
@@ -216,7 +209,6 @@ func (t *TurnProcessor) endTurn() {
 	t.match.SwitchTurn()
 }
 
-// tickAllCooldowns réduit les cooldowns de toutes les pièces
 func (t *TurnProcessor) tickAllCooldowns() {
 	for y := 0; y < BoardSize; y++ {
 		for x := 0; x < BoardSize; x++ {
@@ -233,7 +225,6 @@ func (t *TurnProcessor) tickAllCooldowns() {
 	}
 }
 
-// tickAllStates applique et réduit les états de toutes les pièces
 func (t *TurnProcessor) tickAllStates() {
 	for y := 0; y < BoardSize; y++ {
 		for x := 0; x < BoardSize; x++ {
@@ -249,7 +240,6 @@ func (t *TurnProcessor) tickAllStates() {
 func (t *TurnProcessor) tickPieceStates(piece *PieceInstance) {
 	remaining := piece.ActiveStates[:0]
 	for _, state := range piece.ActiveStates {
-		// Applique l'effet du state
 		switch state.Type {
 		case EffectPoison, EffectBurn:
 			t.applyDamage(nil, piece, state.Value, DamageTypeTrue)
@@ -260,8 +250,6 @@ func (t *TurnProcessor) tickPieceStates(piece *PieceInstance) {
 				piece.CurrentHP = min(piece.CurrentHP+state.Value, tmpl.MaxHP)
 			}
 		}
-
-		// Réduit la durée
 		state.Duration--
 		if state.Duration > 0 {
 			remaining = append(remaining, state)
@@ -271,15 +259,14 @@ func (t *TurnProcessor) tickPieceStates(piece *PieceInstance) {
 }
 
 func (t *TurnProcessor) isValidMove(piece *PieceInstance, target Position, tmpl *PieceTemplate) bool {
-	dx := abs(target.X - piece.Position.X)
-	dy := abs(target.Y - piece.Position.Y)
-
 	if !t.match.Board.IsValidPosition(target) {
 		return false
 	}
 	if t.match.Board.GetPiece(target) != nil {
 		return false
 	}
+	dx := abs(target.X - piece.Position.X)
+	dy := abs(target.Y - piece.Position.Y)
 
 	switch tmpl.MovementPattern.Type {
 	case MovementLinear:
@@ -298,13 +285,6 @@ func (t *TurnProcessor) isValidMove(piece *PieceInstance, target Position, tmpl 
 		return false
 	}
 	return false
-}
-
-func (t *TurnProcessor) isInAttackRange(from, to Position, tmpl *PieceTemplate) bool {
-	dx := abs(to.X - from.X)
-	dy := abs(to.Y - from.Y)
-	dist := max(dx, dy)
-	return dist <= tmpl.AttackRange
 }
 
 func abs(x int) int {
