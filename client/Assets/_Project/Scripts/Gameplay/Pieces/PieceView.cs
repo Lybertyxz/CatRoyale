@@ -19,6 +19,7 @@ namespace CatRoyale.Gameplay
         private string _ownerID;
 
         public string OwnerID => _ownerID;
+        public string TemplateID { get; private set; }
         public int X { get; private set; }
         public int Y { get; private set; }
 
@@ -30,6 +31,7 @@ namespace CatRoyale.Gameplay
         public void Setup(PieceStateData data, bool isLocalPlayer, Sprite icon = null)
         {
             _ownerID = data.OwnerID;
+            TemplateID = data.TemplateID;
             _maxHP = data.MaxHP > 0 ? data.MaxHP : 1; // guard division par zéro
             X = data.X;
             Y = data.Y;

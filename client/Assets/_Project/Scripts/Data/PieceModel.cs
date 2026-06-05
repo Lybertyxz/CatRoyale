@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using CatRoyale.Network;
 
 namespace CatRoyale.Data
 {
@@ -21,6 +22,7 @@ namespace CatRoyale.Data
         public int MoveRange;
         public bool CanJump;
         public string MovementType;
+        public List<CustomPosition> MovementCustom;
 
         // Visual (client only)
         public Sprite Icon;

@@ -234,6 +234,13 @@ namespace CatRoyale.Network
         [JsonProperty("move_range")] public int MoveRange { get; set; }
         [JsonProperty("can_jump")] public bool CanJump { get; set; }
         [JsonProperty("movement_type")] public string MovementType { get; set; }
+        [JsonProperty("movement_custom")] public List<CustomPosition> MovementCustom { get; set; }
+    }
+
+    public class CustomPosition
+    {
+        [JsonProperty("x")] public int X { get; set; }
+        [JsonProperty("y")] public int Y { get; set; }
     }
 
     // Pièces possédées par l'utilisateur (join user_pieces + piece_templates)

@@ -104,6 +104,7 @@ namespace CatRoyale.Data
                     MoveRange = dto.MoveRange,
                     CanJump = dto.CanJump,
                     MovementType = dto.MovementType,
+                    MovementCustom = dto.MovementCustom,
                     Icon = _visuals.GetIcon(dto.ID),
                     IsOwned = false
                 });

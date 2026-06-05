@@ -213,3 +213,17 @@ func (rm *RoomManager) startMatch(room *MatchRoom) {
 
 	log.Printf("[RoomManager] Match started: %s", room.Match.ID)
 }
+
+func (rm *RoomManager) RemovePlayerRooms(playerID string) {
+    rm.mu.Lock()
+    defer rm.mu.Unlock()
+    for matchID, room := range rm.matches {
+        for _, id := range room.Match.PlayerIDs {
+            if id == playerID {
+                delete(rm.matches, matchID)
+                log.Printf("[RoomManager] Removed orphan room %s for player %s", matchID, playerID)
+                break
+            }
+        }
+    }
+}

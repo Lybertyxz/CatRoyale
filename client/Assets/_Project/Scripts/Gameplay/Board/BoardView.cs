@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using CatRoyale.Core;
 using CatRoyale.Data;
+using CatRoyale.Network;
 
 namespace CatRoyale.Gameplay
 {
@@ -52,8 +53,7 @@ namespace CatRoyale.Gameplay
                     rect.sizeDelta = new Vector2(_cellSize, _cellSize);
                     rect.anchoredPosition = GetCellPosition(x, y);
 
-                    int cx = x, cy = y;
-                    cell.Setup(cx, cy, OnCellClicked);
+                    cell.Setup(x, y, OnCellClicked);
                     _cells[y, x] = cell;
                 }
             }
@@ -63,6 +63,7 @@ namespace CatRoyale.Gameplay
 
         private void OnCellClicked(CellView cell)
         {
+            Debug.Log($"[BoardView] Cell clicked: {cell.X},{cell.Y} | piece at: {GetPieceAt(cell.X, cell.Y)?.TemplateID}");
             if (_selectedCell == null)
             {
                 var piece = GetPieceAt(cell.X, cell.Y);
@@ -70,7 +71,7 @@ namespace CatRoyale.Gameplay
                 {
                     _selectedCell = cell;
                     cell.SetHighlight(CellHighlight.Selected);
-                    HighlightValidCells(cell.X, cell.Y);
+                    HighlightValidCells(cell.X, cell.Y, piece.TemplateID);
                 }
             }
             else
@@ -84,23 +85,44 @@ namespace CatRoyale.Gameplay
             }
         }
 
-        private void HighlightValidCells(int x, int y)
+        private void HighlightValidCells(int x, int y, string templateID)
         {
-            for (int dy = -1; dy <= 1; dy++)
+            var model = _repo?.Get(templateID);
+            int range = model?.MoveRange ?? 1;
+            string movementType = model?.MovementType ?? "omni";
+            Debug.Log($"[BoardView] model: {model?.ID} | movementType: {movementType} | customCount: {model?.MovementCustom?.Count}");
+            for (int ny = 0; ny < _boardSize; ny++)
             {
-                for (int dx = -1; dx <= 1; dx++)
+                for (int nx = 0; nx < _boardSize; nx++)
                 {
-                    if (dx == 0 && dy == 0) continue;
-                    int nx = x + dx, ny = y + dy;
-                    if (nx < 0 || nx >= _boardSize || ny < 0 || ny >= _boardSize) continue;
+                    if (nx == x && ny == y) continue;
+
+                    if (!IsValidMoveTarget(x, y, nx, ny, range, movementType, model?.MovementCustom)) continue;
 
                     var piece = GetPieceAt(nx, ny);
+                    Debug.Log($"[BoardView] Highlighting {nx},{ny} for {templateID} — movementType: {movementType}");
                     if (piece == null)
                         _cells[ny, nx].SetHighlight(CellHighlight.Move);
                     else if (piece.OwnerID != _localPlayerID)
                         _cells[ny, nx].SetHighlight(CellHighlight.Attack);
                 }
             }
+        }
+
+        private bool IsValidMoveTarget(int fromX, int fromY, int toX, int toY, int range, string movementType, List<CustomPosition> custom)
+        {
+            int dx = toX - fromX;
+            int dy = toY - fromY;
+            int adx = Mathf.Abs(dx), ady = Mathf.Abs(dy);
+
+            return movementType switch
+            {
+                "linear" => (adx == 0 || ady == 0) && Mathf.Max(adx, ady) <= range,
+                "diagonal" => adx == ady && adx <= range,
+                "omni" => Mathf.Max(adx, ady) <= range,
+                "custom" => custom != null && custom.Exists(c => c.X == dx && c.Y == dy),
+                _ => Mathf.Max(adx, ady) <= range
+            };
         }
 
         public void ClearHighlights()
@@ -136,8 +158,6 @@ namespace CatRoyale.Gameplay
 
                 string key = data.TemplateID + data.OwnerID;
                 var icon = _repo?.Get(data.TemplateID)?.Icon;
-
-                // Convertit les coordonnées serveur en position visuelle
                 var pos = GetCellPosition(data.X, data.Y);
 
                 if (_pieces.TryGetValue(key, out var existing))
@@ -159,15 +179,9 @@ namespace CatRoyale.Gameplay
 
         // ─── Helpers ──────────────────────────────────────────
 
-        /// <summary>
-        /// Convertit les coordonnées logiques (serveur) en position UI.
-        /// Joueur 0 (haut) : Y croissant vers le haut.
-        /// Joueur 1 (bas)  : board retourné — Y croissant vers le bas.
-        /// </summary>
         private Vector2 GetCellPosition(int x, int y)
         {
             int displayY = _playerIndex == 1 ? (_boardSize - 1 - y) : y;
-
             return new Vector2(
                 x * _cellSize - (_boardSize * _cellSize / 2f) + _cellSize / 2f,
                 displayY * _cellSize - (_boardSize * _cellSize / 2f) + _cellSize / 2f

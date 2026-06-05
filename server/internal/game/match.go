@@ -38,7 +38,7 @@ type TurnState struct {
 
 func NewTurnState() *TurnState {
 	return &TurnState{
-		RemainingPM:   1,
+		RemainingPM:   10,
 		RemainingPA:   1,
 		MovedPieces:   make(map[string]bool),
 		UsedAbilities: make(map[string][]string),

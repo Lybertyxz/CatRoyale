@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+
 	"github.com/Lybertyxz/CatRoyale/server/internal/store/postgres"
 	"github.com/gofiber/fiber/v2"
 )
@@ -34,7 +36,7 @@ func (h *UserHandler) GetPieces(c *fiber.Ctx) error {
 		return c.JSON([]interface{}{})
 	}
 
-	return c.JSON(pieces)
+	return c.JSON(toPieceResponseList(pieces))
 }
 
 // GetUserPieces retourne les pièces possédées par l'utilisateur connecté
@@ -54,4 +56,56 @@ func (h *UserHandler) GetUserPieces(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(pieces)
+}
+
+// ─── DTO ──────────────────────────────────────────────────
+
+type pieceResponseDTO struct {
+	ID             string          `json:"id"`
+	Name           string          `json:"name"`
+	Role           string          `json:"role"`
+	Rarity         string          `json:"rarity"`
+	SlotCost       int32           `json:"slot_cost"`
+	MaxHP          int32           `json:"max_hp"`
+	Attack         int32           `json:"attack"`
+	Armor          int32           `json:"armor"`
+	AttackRange    int32           `json:"attack_range"`
+	MoveRange      int32           `json:"move_range"`
+	CanJump        bool            `json:"can_jump"`
+	MovementType   string          `json:"movement_type"`
+	MovementCustom json.RawMessage `json:"movement_custom"`
+	Abilities      json.RawMessage `json:"abilities"`
+}
+
+func toPieceResponseList(pieces []postgres.PieceTemplate) []pieceResponseDTO {
+	result := make([]pieceResponseDTO, 0, len(pieces))
+	for _, p := range pieces {
+		var movCustom json.RawMessage
+		if len(p.MovementCustom) > 0 {
+			movCustom = json.RawMessage(p.MovementCustom)
+		}
+
+		var abilities json.RawMessage
+		if len(p.Abilities) > 0 {
+			abilities = json.RawMessage(p.Abilities)
+		}
+
+		result = append(result, pieceResponseDTO{
+			ID:             p.ID,
+			Name:           p.Name,
+			Role:           p.Role,
+			Rarity:         p.Rarity,
+			SlotCost:       p.SlotCost,
+			MaxHP:          p.MaxHp,
+			Attack:         p.Attack,
+			Armor:          p.Armor,
+			AttackRange:    p.AttackRange,
+			MoveRange:      p.MoveRange,
+			CanJump:        p.CanJump,
+			MovementType:   p.MovementType,
+			MovementCustom: movCustom,
+			Abilities:      abilities,
+		})
+	}
+	return result
 }
