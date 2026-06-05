@@ -61,16 +61,17 @@ namespace CatRoyale.Gameplay
             if (_network != null)
                 _network.OnMessageReceived += OnMessageReceived;
 
+            _boardView?.Initialize("", 0);
+
+            if (_boardView != null)
+                _boardView.OnActionRequested += OnBoardAction;
+
+            // Puis rejoue game_start qui mettra à jour localPlayerID et playerIndex
             if (!string.IsNullOrEmpty(GameContext.PendingGameStartPayload))
             {
                 HandleGameStart(GameContext.PendingGameStartPayload);
                 GameContext.PendingGameStartPayload = null;
             }
-
-            _boardView?.Initialize(_localPlayerID, _playerIndex);
-
-            if (_boardView != null)
-                _boardView.OnActionRequested += OnBoardAction;
         }
 
         private void OnDestroy()
@@ -120,6 +121,9 @@ namespace CatRoyale.Gameplay
                 case "game_over":
                     MainThreadDispatcher.Run(() => HandleGameOver(envelope.Payload?.ToString() ?? "{}"));
                     break;
+                case "opponent_disconnected":
+                    MainThreadDispatcher.Run(() => HandleOpponentDisconnected());
+                    break;
                 case "error":
                     var err = JsonConvert.DeserializeObject<ErrorPayload>(envelope.Payload?.ToString() ?? "{}");
                     Debug.LogWarning($"[GameSceneController] Server error: {err?.Message}");
@@ -144,6 +148,8 @@ namespace CatRoyale.Gameplay
             _remainingPA = 1;
             _remainingPM = 1;
 
+            _boardView?.Initialize(_localPlayerID, _playerIndex);
+
             if (_opponentNameText) _opponentNameText.text = _opponentName;
             UpdateTurnUI();
             UpdateTimerUI();
@@ -154,7 +160,7 @@ namespace CatRoyale.Gameplay
         {
             var data = JsonConvert.DeserializeObject<GameReadyPayload>(payload);
             if (data?.State == null) return;
-
+            Debug.Log($"[GameSceneController] HandleGameReady — localPlayerID: {_localPlayerID} | playerIndex: {_playerIndex} | boardInitialized: {_boardView?.IsInitialized}");
             if (_boardView != null && !_boardView.IsInitialized)
                 _boardView.Initialize(_localPlayerID);
 
@@ -193,6 +199,13 @@ namespace CatRoyale.Gameplay
             if (_resultPanel) _resultPanel.SetActive(true);
             if (_resultText)
                 _resultText.text = result.WinnerID == _localPlayerID ? "VICTOIRE !" : "DÉFAITE";
+        }
+
+        private void HandleOpponentDisconnected()
+        {
+            _gameOver = true;
+            if (_resultPanel) _resultPanel.SetActive(true);
+            if (_resultText) _resultText.text = "VICTOIRE ! (adversaire déconnecté)";
         }
 
         // ─── Actions ──────────────────────────────────────────

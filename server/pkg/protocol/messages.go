@@ -14,6 +14,7 @@ const (
 	MsgTurnResult MessageType = "turn_result"
 	MsgGameOver   MessageType = "game_over"
 	MsgError      MessageType = "error"
+	MsgOpponentDisconnected MessageType = "opponent_disconnected"
 )
 
 type Envelope struct {

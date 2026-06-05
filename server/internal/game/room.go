@@ -214,16 +214,39 @@ func (rm *RoomManager) startMatch(room *MatchRoom) {
 	log.Printf("[RoomManager] Match started: %s", room.Match.ID)
 }
 
-func (rm *RoomManager) RemovePlayerRooms(playerID string) {
-    rm.mu.Lock()
-    defer rm.mu.Unlock()
-    for matchID, room := range rm.matches {
-        for _, id := range room.Match.PlayerIDs {
-            if id == playerID {
-                delete(rm.matches, matchID)
-                log.Printf("[RoomManager] Removed orphan room %s for player %s", matchID, playerID)
-                break
-            }
+func (rm *RoomManager) HandlePlayerDisconnect(playerID string) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	for matchID, room := range rm.matches {
+		for _, id := range room.Match.PlayerIDs {
+			if id == playerID {
+				// Notifie l'adversaire
+				for _, opponentID := range room.Match.PlayerIDs {
+					if opponentID != playerID {
+						room.SendToPlayer(opponentID, "opponent_disconnected", map[string]string{
+							"player_id": playerID,
+						})
+					}
+				}
+				delete(rm.matches, matchID)
+				log.Printf("[RoomManager] Room %s removed — player %s disconnected", matchID, playerID)
+				return
+			}
+		}
+	}
+}
+
+func (rm *RoomManager) DebugRooms() map[string]interface{} {
+    rm.mu.RLock()
+    defer rm.mu.RUnlock()
+    result := make(map[string]interface{})
+    for id, room := range rm.matches {
+        result[id] = map[string]interface{}{
+            "players": room.Match.PlayerIDs,
+            "status":  room.Match.Status,
+            "turn":    room.Match.TurnNumber,
         }
     }
+    return result
 }

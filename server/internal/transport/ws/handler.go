@@ -56,7 +56,7 @@ func Handler(hub *Hub, firebase *auth.FirebaseManager, roomManager *game.RoomMan
         client.ReadPump()
 
         queue.Leave(context.Background(), userID)
-        roomManager.RemovePlayerRooms(userID)
+        roomManager.HandlePlayerDisconnect(userID)
 
         log.Printf("[WS] Player disconnected: %s", userID)
     })

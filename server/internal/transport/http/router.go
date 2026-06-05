@@ -41,7 +41,7 @@ func NewRouter(
 	// ─── Dev Mode ────────────────────────────────────────
 	if cfg.DevMode {
 		middleware.InjectDevUser(api)
-		routes.RegisterDevRoutes(api, queue)
+		routes.RegisterDevRoutes(api, queue, roomManager)
 	}
 
 	// ─── Public ──────────────────────────────────────────
